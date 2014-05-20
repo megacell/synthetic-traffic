@@ -16,6 +16,7 @@ class Waypoints:
         y_new = bbox[1] + D[:,1] * (bbox[3]-bbox[1])
         return np.vstack((x_new, y_new)).T
 
+    # checks if point is in bounding box
     def in_box(self,p):
         if p[0] >= self.bbox[0] and p[0] <= self.bbox[2] and \
                 p[1] >= self.bbox[1] and p[1] <= self.bbox[3]:
@@ -43,7 +44,7 @@ class Waypoints:
         pass
 
     # gaussian sampling along polyline
-    def gaussian_polyline(self,p,n=None,log=False,bounded=True):
+    def gaussian_polyline(self,p,n=None,log=False,bounded=True,tau=300):
         if not n:
             n = self.n
         if log:
@@ -70,6 +71,9 @@ class Waypoints:
                 for k in range(freq):
                     pos = np.random.random()
                     x = p[i][j] + (np.subtract(p[i][j], p[i][j])) * pos
+                    dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
+                    dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
+                    x = x + np.array([dx,dy])
                     if not self.in_box(x):
                         continue
                     if waypoints != None:
