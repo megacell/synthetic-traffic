@@ -56,41 +56,62 @@ class Waypoints:
         dists_sub = [np.sum(np.square(np.array(points)[:-1,:] - \
                 np.array(points)[1:,:]),axis=1) for points in p]
         total = np.sum(dists)
-        # select roads for each of n samples
-        road_freq = np.random.multinomial(n,dists/total)
-        print road_freq
-        # for each selected road, select segment for each of n samples
-        # TODO get the right samples
-        seq_freq = [np.random.multinomial(j,dists_sub[i] / \
-                sum(dists_sub[i])) for i,j in enumerate(road_freq)]
-        # for each segment, uniformly sample
-        locs = np.random.random(n)
-        waypoints = None
-        for i,freqs in enumerate(seq_freq):
-            for j,freq in enumerate(freqs):
-                for k in range(freq):
-                    pos = np.random.random()
-                    x = p[i][j] + (np.subtract(p[i][j], p[i][j])) * pos
-                    dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
-                    dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
-                    x = x + np.array([dx,dy])
-                    if not self.in_box(x):
-                        continue
-                    if waypoints != None:
-                        waypoints = np.vstack((waypoints,x))
-                    else:
-                        waypoints = x
+
+        waypoints = np.array([])
+        while waypoints.shape[0] < n:
+            if waypoints.size == 0:
+                samples = n
+            else:
+                samples = 1
+            # select polyline for each of n samples
+            road_freq = np.random.multinomial(samples,dists/total)
+            # for each selected polyline, select segment for each of n samples
+            seq_freq = [np.random.multinomial(j,dists_sub[i] / \
+                    sum(dists_sub[i])) for i,j in enumerate(road_freq)]
+            # for each segment, uniformly sample
+            locs = np.random.random(samples)
+            for i,freqs in enumerate(seq_freq):
+                for j,freq in enumerate(freqs):
+                    for k in range(freq):
+                        pos = np.random.random()
+                        x = p[i][j] + (np.subtract(p[i][j], p[i][j])) * pos
+                        dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
+                        dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
+                        x = x + np.array([dx,dy])
+                        if not self.in_box(x):
+                            continue
+                        if waypoints.size != 0:
+                            waypoints = np.vstack((waypoints,x))
+                        else:
+                            waypoints = x
         self.wp['gaussian_polyline'] = np.array(waypoints)
 
-
     # gaussian sampling around points
-    def gaussian_points(self,p,n=None):
+    def gaussian_points(self,p,n=None,bounded=True,tau=300):
         if not n:
             n = self.n
-        pass
+        # select point for each of n samples
+        waypoints = np.array([])
+        while waypoints.shape[0] < n:
+            if waypoints.size == 0:
+                samples = n
+            else:
+                samples = 1
+            points_ind = np.random.randint(0,len(p),samples)
+            for ind in points_ind:
+                dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
+                dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
+                x = p[ind] + np.array([dx,dy])
+                if not self.in_box(x):
+                    continue
+                if waypoints.size != 0:
+                    waypoints = np.vstack((waypoints,x))
+                else:
+                    waypoints = x
+        self.wp['gaussian_points'] = np.array(waypoints)
 
     def show(self):
-        colors = 'crgbykm'
+        colors = 'crmgbyk'
 
         # draw bounding box
         bbox = self.bbox
@@ -101,7 +122,9 @@ class Waypoints:
 
         # scatter waypoints
         for i,k in enumerate(self.wp):
-            plt.scatter(self.wp[k][:,0],self.wp[k][:,1],label=k,color=colors[i],s=1)
+            print k, self.wp[k].shape
+            plt.scatter(self.wp[k][:,0],self.wp[k][:,1],label=k, \
+                    color=colors[i],s=2)
 
         plt.title('Waypoints')
         plt.xlabel('lat')
@@ -110,12 +133,24 @@ class Waypoints:
         plt.show()
 
 if __name__ == "__main__":
+    import config as c
     w = Waypoints(bbox=[-118.17,34.0,-117.95,34.2])
+
+    # uniform points
     w.uniform_random(n=1000)
 
+    # points along major roads
     import pickle
-    import config as c
     roads = pickle.load(open('%s/%s' % (c.DATA_DIR,c.ROAD_FILE)))
     w.gaussian_polyline([y.points for (x,y) in roads],n=1000)
 
+    # points around PEMS sensors
+    import csv
+    with open('%s/%s' % (c.DATA_DIR,c.SENSOR_FILE)) as csvfile:
+        sensor_reader = csv.DictReader(csvfile)
+        sensors = [(float(row['Longitude']),float(row['Latitude'])) for row \
+                in sensor_reader]
+        w.gaussian_points(sensors,n=1000)
+
+    # plot
     w.show()

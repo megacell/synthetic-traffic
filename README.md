@@ -5,6 +5,7 @@ Dependencies
 
     scipy
     ipython
+    pyshp
 
 Load map via Shapefile
 
