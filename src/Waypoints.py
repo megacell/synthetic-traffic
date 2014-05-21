@@ -10,8 +10,9 @@ class Waypoints:
         self.wp = {}
 
     # transform points from [0,1]^2 to bbox
-    def shift_and_scale(self,D):
-        bbox = self.bbox
+    def shift_and_scale(self,D,bbox=None):
+        if not bbox:
+            bbox = self.bbox
         x_new = bbox[0] + D[:,0] * (bbox[2]-bbox[0])
         y_new = bbox[1] + D[:,1] * (bbox[3]-bbox[1])
         return np.vstack((x_new, y_new)).T
@@ -38,10 +39,30 @@ class Waypoints:
         self.wp['uniform_random'] = self.shift_and_scale(samples)
 
     # uniform (random) in a polygon
-    def uniform_random_polygon(self,n=None):
+    def uniform_random_bbox(self,pop,bbox,n=None):
         if not n:
             n = self.n
-        pass
+        waypoints = np.array([])
+        while waypoints.shape[0] < n:
+            if waypoints.size == 0:
+                samples = n
+            else:
+                samples = 1
+            # select bbox for each of n samples
+            bbox_freq = np.random.multinomial(samples,pop/np.sum(pop))
+            # for each bbox, uniformly sample
+            for i,freq in enumerate(bbox_freq):
+                if freq == 0:
+                    continue
+                x = self.shift_and_scale(np.random.rand(freq,2),bbox=bbox[i])
+                x = np.array([p for p in x if self.in_box(p)])
+                if x.size == 0:
+                    continue
+                if waypoints.size != 0:
+                    waypoints = np.vstack((waypoints,x))
+                else:
+                    waypoints = x
+        self.wp['uniform_rand_bbox'] = np.array(waypoints)
 
     # gaussian sampling along polyline
     def gaussian_polyline(self,p,n=None,log=False,bounded=True,tau=300):
@@ -72,6 +93,8 @@ class Waypoints:
             locs = np.random.random(samples)
             for i,freqs in enumerate(seq_freq):
                 for j,freq in enumerate(freqs):
+                    if freq == 0:
+                        continue
                     for k in range(freq):
                         pos = np.random.random()
                         x = p[i][j] + (np.subtract(p[i][j], p[i][j])) * pos
@@ -138,11 +161,13 @@ if __name__ == "__main__":
 
     # uniform points
     w.uniform_random(n=1000)
+    print "Uniform random waypoints selected"
 
     # points along major roads
     import pickle
     roads = pickle.load(open('%s/%s' % (c.DATA_DIR,c.ROAD_FILE)))
     w.gaussian_polyline([y.points for (x,y) in roads],n=1000)
+    print "Polyline gaussian waypoints selected"
 
     # points around PEMS sensors
     import csv
@@ -151,6 +176,21 @@ if __name__ == "__main__":
         sensors = [(float(row['Longitude']),float(row['Latitude'])) for row \
                 in sensor_reader]
         w.gaussian_points(sensors,n=1000)
+    print "Point gaussian waypoints selected"
+
+    # points by population
+    import shapefile
+    sf = shapefile.Reader("%s/workplace/tier1wgs84" % c.DATA_DIR)
+    shapeRecords = sf.shapeRecords()
+    areas = [x.record[1] for x in shapeRecords]
+    pop20 = [x.record[4] for x in shapeRecords]
+    pop35 = [x.record[8] for x in shapeRecords]
+    bbox = [x.shape.bbox for x in shapeRecords]
+    ind_bbox_filter = [(i,x) for (i,x) in enumerate(bbox) if w.in_box((x[0],x[1])) or w.in_box((x[2],x[3]))]
+    ind, bbox_filter = zip(*ind_bbox_filter)
+    pop20_filter = [pop20[x] for x in ind] 
+    w.uniform_random_bbox(pop20_filter,bbox_filter,n=3000)
+    print "Bbox uniform waypoints selected"
 
     # plot
     w.show()
