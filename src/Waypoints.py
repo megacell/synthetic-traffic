@@ -155,6 +155,10 @@ class Waypoints:
         plt.legend(loc='upper right')
         plt.show()
 
+    def save(self,c):
+        import pickle
+        pickle.dump(self.wp,open('%s/%s' % (c.DATA_DIR,c.WAYPOINTS_FILE),'w'))
+
 if __name__ == "__main__":
     import config as c
     w = Waypoints(bbox=[-118.17,34.0,-117.95,34.2])
