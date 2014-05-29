@@ -15,13 +15,13 @@ Also, see our [contributors](AUTHORS.md)!
 
 Contents
 --------
-# [General dependencies](#generaldependencies)
-# [Toy networks](#toynetworks)
-# [Grid networks](#gridnetworks)
-# [Waypoints](#waypoints)
+1. [General dependencies](#generaldependencies)
+2. [Toy networks](#toynetworks)
+3. [Grid networks](#gridnetworks)
+4. [Waypoints](#waypoints)
 
 <a name="generaldependencies"></a>
-General dependencies
+1. General dependencies
 -------------------
     
 We use Python 2.7.
@@ -32,13 +32,13 @@ We use Python 2.7.
     delegate
     
 <a name="toynetworks"></a>
-Toy networks
+2. Toy networks
 ------------
 
 Coming soon!
 
 <a name="gridnetworks"></a>
-Grid networks
+3. Grid networks
 -------------
 
 Dependencies for grid networks
@@ -58,7 +58,7 @@ Example
         --num_routes_per_od 3 --num_nonzero_routes_per_o 3
 
 <a name="waypoints"></a>
-Waypoints
+4. Waypoints
 ---------
 
 Dependencies for waypoint
