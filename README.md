@@ -1,7 +1,13 @@
 synthetic-traffic
 =================
 
-We aim to create a set of synthetic networks and traffic data for benchmarking and evaluation purposes.
+We are working on producing a set of synthetic urban traffic networks and corresponding data for benchmarking and evaluation purposes.
+
+For example usage, please see:
+
+[Convex optimization for traffic assignment](https://github.com/cathywu/traffic-estimation)\n
+[Bayesian inference for traffic assignment](https://github.com/cathywu/traffic-estimation-bayesian)\n
+[Compressive sensing for traffic assignment](https://github.com/pcmoritz/traffic-project)
 
 General dependencies
 -------------------
@@ -13,10 +19,8 @@ General dependencies
     
 Contents
 --------
-[Toy networks](#toynetworks)
-
-[Grid networks](#gridnetworks)
-
+[Toy networks](#toynetworks)\n
+[Grid networks](#gridnetworks)\n
 [Waypoints](#waypoints)
 
 <a name="toynetworks"></a>
