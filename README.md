@@ -11,6 +11,8 @@ For example usage, please see:
 
 [Compressive sensing for traffic assignment](https://github.com/pcmoritz/traffic-project)
 
+Also, see our [contributors](AUTHORS.md)!
+
 General dependencies
 -------------------
     
@@ -75,6 +77,3 @@ Generate waypoints
 
     run -i Waypoint.py
 
-Contributors
-------------
-See [authors](AUTHORS.md)
