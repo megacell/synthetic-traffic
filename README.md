@@ -14,6 +14,8 @@ For example usage, please see:
 General dependencies
 -------------------
     
+We use Python 2.7.
+
     scipy
     ipython
     matplotlib
@@ -40,6 +42,11 @@ Grid networks
 Dependencies for grid networks
 
     networkx
+
+Usage
+
+    python static_matrix.py --prefix '' --num_rows <# ROWS OF STREETS> --num_cols <# COLUMNS OF STREETS> --num_routes_per_od <# ROUTES BETWEEN ODS> --num_nonzero_routes_per_o <# ROUTES WITH NONZERO FLOW PER OD>
+    python static_matrix.py --prefix '' --num_rows 2 --num_cols 2 --num_routes_per_od 3 --num_nonzero_routes_per_o 3
 
 <a name="waypoints"></a>
 Waypoints
