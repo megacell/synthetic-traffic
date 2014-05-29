@@ -15,13 +15,10 @@ Also, see our [contributors](AUTHORS.md)!
 
 Contents
 --------
-[General dependencies](#generaldependencies)
-
-[Toy networks](#toynetworks)
-
-[Grid networks](#gridnetworks)
-
-[Waypoints](#waypoints)
+# [General dependencies](#generaldependencies)
+# [Toy networks](#toynetworks)
+# [Grid networks](#gridnetworks)
+# [Waypoints](#waypoints)
 
 <a name="generaldependencies"></a>
 General dependencies
