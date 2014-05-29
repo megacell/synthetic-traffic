@@ -57,6 +57,10 @@ Example
     python static_matrix.py --prefix '' --num_rows 2 --num_cols 2 \
         --num_routes_per_od 3 --num_nonzero_routes_per_o 3
 
+Example grid network
+
+<img src="figures/grid_network.pdf" alt="Example grid network" width=300px />
+
 <a name="waypoints"></a>
 4. Waypoints
 ---------
@@ -79,4 +83,4 @@ Generate waypoints
 
 Example waypoints
 
-![Example waypoints](figures/waypoints.png "Example waypoints")
+<img src="figures/waypoints.png" alt="Example waypoints" width=300px />
