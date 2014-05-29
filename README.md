@@ -45,8 +45,10 @@ Dependencies for grid networks
 
 Usage
 
-    python static_matrix.py --prefix '' --num_rows <# ROWS OF STREETS> --num_cols <# COLUMNS OF STREETS> \
-        --num_routes_per_od <# ROUTES BETWEEN ODS> --num_nonzero_routes_per_o <# ROUTES WITH NONZERO FLOW PER OD>
+    python static_matrix.py --prefix '' --num_rows <# ROWS OF STREETS> \
+        --num_cols <# COLUMNS OF STREETS> \
+        --num_routes_per_od <# ROUTES BETWEEN ODS> \
+        --num_nonzero_routes_per_o <# ROUTES WITH NONZERO FLOW PER OD>
     python static_matrix.py --prefix '' --num_rows 2 --num_cols 2 \
         --num_routes_per_od 3 --num_nonzero_routes_per_o 3
 
