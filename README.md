@@ -77,3 +77,6 @@ Generate waypoints
 
     run -i Waypoint.py
 
+Example waypoints
+
+![Example waypoints](/path/to/img.jpg "Example waypoints")
