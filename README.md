@@ -13,6 +13,17 @@ For example usage, please see:
 
 Also, see our [contributors](AUTHORS.md)!
 
+Contents
+--------
+[General dependencies](#generaldependencies)
+
+[Toy networks](#toynetworks)
+
+[Grid networks](#gridnetworks)
+
+[Waypoints](#waypoints)
+
+<a name="generaldependencies"></a>
 General dependencies
 -------------------
     
@@ -23,14 +34,6 @@ We use Python 2.7.
     matplotlib
     delegate
     
-Contents
---------
-[Toy networks](#toynetworks)
-
-[Grid networks](#gridnetworks)
-
-[Waypoints](#waypoints)
-
 <a name="toynetworks"></a>
 Toy networks
 ------------
