@@ -19,23 +19,23 @@ Contents
 
 [Waypoints](#waypoints)
 
+<a name="toynetworks"></a>
 Toy networks
 ------------
-<a name="toynetworks"></a>
 
 Coming soon!
 
+<a name="gridnetworks"></a>
 Grid networks
 -------------
-<a name="gridnetworks"></a>
 
 Dependencies for grid networks
 
     networkx
 
+<a name="waypoints"></a>
 Waypoints
 ---------
-<a name="waypoints"></a>
 
 Dependencies for waypoint
 
