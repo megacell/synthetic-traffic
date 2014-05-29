@@ -79,4 +79,4 @@ Generate waypoints
 
 Example waypoints
 
-![Example waypoints](/path/to/img.jpg "Example waypoints")
+![Example waypoints](figures/waypoints.png "Example waypoints")
