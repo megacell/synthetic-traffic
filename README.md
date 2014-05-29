@@ -12,9 +12,9 @@ General dependencies
     
 Contents
 
-    [Toy networks](#toynetworks)
-    [Grid networks](#gridnetworks)
-    [Waypoints](#waypoints)
+[Toy networks](#toynetworks)
+[Grid networks](#gridnetworks)
+[Waypoints](#waypoints)
 
 <a name="toynetworks"></a>
 
