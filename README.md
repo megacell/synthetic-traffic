@@ -5,8 +5,10 @@ We are working on producing a set of synthetic urban traffic networks and corres
 
 For example usage, please see:
 
-[Convex optimization for traffic assignment](https://github.com/cathywu/traffic-estimation)\n
-[Bayesian inference for traffic assignment](https://github.com/cathywu/traffic-estimation-bayesian)\n
+[Convex optimization for traffic assignment](https://github.com/cathywu/traffic-estimation)
+
+[Bayesian inference for traffic assignment](https://github.com/cathywu/traffic-estimation-bayesian)
+
 [Compressive sensing for traffic assignment](https://github.com/pcmoritz/traffic-project)
 
 General dependencies
@@ -19,8 +21,10 @@ General dependencies
     
 Contents
 --------
-[Toy networks](#toynetworks)\n
-[Grid networks](#gridnetworks)\n
+[Toy networks](#toynetworks)
+
+[Grid networks](#gridnetworks)
+
 [Waypoints](#waypoints)
 
 <a name="toynetworks"></a>
