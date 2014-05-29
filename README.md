@@ -74,3 +74,7 @@ Find new roads of interest
 Generate waypoints
 
     run -i Waypoint.py
+
+Contributors
+------------
+See [authors](AUTHORS.md)
