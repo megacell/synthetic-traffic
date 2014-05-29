@@ -4,6 +4,7 @@ synthetic-traffic
 We aim to create a set of synthetic networks and traffic data for benchmarking and evaluation purposes.
 
 General dependencies
+-------------------
     
     scipy
     ipython
@@ -11,21 +12,29 @@ General dependencies
     delegate
     
 Contents
-
+--------
 [Toy networks](#toynetworks)
+
 [Grid networks](#gridnetworks)
+
 [Waypoints](#waypoints)
 
+Toy networks
+------------
 <a name="toynetworks"></a>
 
-    Coming soon!
+Coming soon!
 
+Grid networks
+-------------
 <a name="gridnetworks"></a>
 
 Dependencies for grid networks
 
     networkx
 
+Waypoints
+---------
 <a name="waypoints"></a>
 
 Dependencies for waypoint
