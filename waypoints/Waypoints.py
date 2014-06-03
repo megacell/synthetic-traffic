@@ -161,7 +161,8 @@ class Waypoints:
 
 if __name__ == "__main__":
     import config as c
-    w = Waypoints(bbox=[-118.17,34.0,-117.95,34.2])
+    # Official bounding box: -118.328299, 33.984601, -117.68132, 34.255881
+    w = Waypoints(bbox=[-118.328299, 33.984601, -117.68132, 34.255881])
 
     # uniform points
     w.uniform_random(n=1000)
