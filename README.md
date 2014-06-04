@@ -81,6 +81,13 @@ Find new roads of interest
 
 Generate waypoints
 
+    run -i Waypoint.py
+
+Example waypoints
+
+<img src="figures/waypoints.png" alt="Example waypoints" width=300px />
+
+
 5. Grid networks in UE
 -------------
 
@@ -96,8 +103,4 @@ Running
     python test_missing.py
     python test_draw.py
 
-    run -i Waypoint.py
-
-Example waypoints
-
-<img src="figures/waypoints.png" alt="Example waypoints" width=300px />
+    
