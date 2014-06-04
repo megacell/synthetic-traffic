@@ -19,6 +19,7 @@ Contents
 2. [Toy networks](#toynetworks)
 3. [Grid networks](#gridnetworks)
 4. [Waypoints](#waypoints)
+5. [Grid networks in UE] (#gridnetworksue)
 
 <a name="generaldependencies"></a>
 1. General dependencies
@@ -62,6 +63,7 @@ Example grid network
 <img src="figures/grid_network.pdf" alt="Example grid network" width=300px />
 
 <a name="waypoints"></a>
+
 4. Waypoints
 ---------
 
@@ -78,6 +80,21 @@ Find new roads of interest
     roads = find('210',sf,shapes,verbose=True)
 
 Generate waypoints
+
+5. Grid networks in UE
+-------------
+
+Dependencies for grid networks in UE
+
+    cvxopt
+    networkx
+
+Running 
+    
+    python test_ue_solver.py
+    python test_path_solver.py
+    python test_missing.py
+    python test_draw.py
 
     run -i Waypoint.py
 
