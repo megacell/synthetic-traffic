@@ -109,4 +109,4 @@ Coordinates for bounding box in L.A.: [-118.328299, 33.984601, -117.68132, 34.25
 
 Add flow in equilibrium to recreate congestion
 
-<img src="figures/map_congestion.jpg" width=300px /
+<img src="figures/map_congestion.jpg" width=300px />
