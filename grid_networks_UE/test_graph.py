@@ -4,8 +4,11 @@ Created on Apr 18, 2014
 @author: jeromethai
 '''
 
+import Graph
 import Graph as g
-
+import numpy as np
+import scipy.io as sio
+from cvxopt import matrix
 
 def small_example():
     
@@ -34,17 +37,43 @@ def small_example():
     return graph
 
 
-def small_grid():
+def small_grid(od_flows, delaytype='Affine', theta=None):
+    """Creates a small grid with fixed geometry, fixed affine/polynomial latency functions, and fixed OD pairs
+    variable OD flows
     
-    grid = g.create_grid(2, 3, outdown=[1,1,1], outddelay=[[(1.0, 4.0)], [(1.0, 4.0)], [(1.0, 1.0)]], 
-                  inright=[1,1,0,1,1], inrdelay=[[(3.0, 1.0)], [(2.0, 1.0)], [(0.0, 0.0)], [(2.0, 1.0)], [(3.0, 1.0)]], delaytype='Affine')
+    Parameters
+    ----------
+    od_flows: OD demands
+    delaytype: type  of the delay functions
+    theta: if delaytype = 'Polynomial', 
+            then delay at link i is D_i(x) = ffdelays[i] + sum^{degree}_{k=1} theta[k-1]*(slopes[i]*x)^k
+    """
     
-    grid.add_link(5, 2, 1, delayfunc=g.AffineDelay(1.0, 4.0))
+    ffdelays = [1.0, 1.0, 1.0, 3.0, 2.0, 2.0, 3.0, 1.0]
+    #slopes = [4.0, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 4.0]
+    slopes = [1.0, 1.0, 0.25, 0.25, 0.25, 0.25, 0.25, 1.0]
     
-    grid.add_od(3, 6, 3.0)
-    grid.add_od(3, 4, 3.0)
-    grid.add_od(3, 2, 1.0)
-    grid.add_od(2, 4, 1.0)
+    if delaytype == 'Affine': data = zip(ffdelays, slopes)
+    elif delaytype == 'Polynomial':
+        degree = len(theta)
+        coefs = []
+        for j in range(8):
+            coefs.append([ffdelays[j]*a*b for a,b in zip(theta, np.power(slopes[j], range(1,degree+1)))])
+        data = zip(ffdelays, slopes, coefs)
+    
+    grid = g.create_grid(2, 3, outdown=[1,1,1],
+        outddelay=[[data[0]], [data[1]], [data[2]]], 
+        inright=[1,1,0,1,1],
+        inrdelay=[[data[3]], [data[4]], [(0.0, 0.0)], [data[5]], [data[6]]],
+        delaytype=delaytype)
+    
+    
+    grid.add_link(5, 2, 1, delayfunc=g.create_delayfunc(delaytype,data[7]))
+        
+    grid.add_od(3, 6, od_flows[0])
+    grid.add_od(3, 4, od_flows[1])
+    grid.add_od(3, 2, od_flows[2])
+    grid.add_od(2, 4, od_flows[3])
     
     #grid.add_od(10,3) # error
     #grid.add_od(0,3) # error
@@ -72,34 +101,49 @@ def small_grid():
     return grid
 
 
-def small_grid2():
-    grid = g.create_grid(2, 3, outdown=[1,1,1], outddelay=[[(1.0, 4.0)], [(1.0, 4.0)], [(1.0, 1.0)]], 
-                  inright=[1,1,0,1,1], inrdelay=[[(3.0, 1.0)], [(2.0, 1.0)], [(0.0, 0.0)], [(2.0, 1.0)], [(3.0, 1.0)]], delaytype='Affine')
+def los_angeles(theta=None, delaytype='None', multiple=False, noisy=False):
     
-    grid.add_link(5, 2, 1, delayfunc=g.AffineDelay(1.0, 4.0))
+    data = sio.loadmat('los_angeles_data.mat')
     
-    grid.add_od(3, 6, 1.0)
-    grid.add_od(3, 4, 1.0)
-    grid.add_od(3, 2, 1.0)
-    grid.add_od(2, 4, 4.0)
+    if not noisy:
+        links = data['links']
+        ODs = data['ODs']
+        ODs1, ODs2, ODs3 = data['ODs1'], data['ODs2'], data['ODs3']
+    else:
+        links = data['links_noisy']
+        ODs = data['ODs_noisy']
+        ODs1, ODs2, ODs3 = data['ODs1_noisy'], data['ODs2_noisy'], data['ODs3_noisy']
+        
+    nodes = data['nodes']
+        
+    if theta is not None:
+        degree = len(theta)
+        tmp = links
+        links = []
+        for startnode, endnode, route, ffdelay, slope in tmp:
+            coef = [ffdelay*a*b for a,b in zip(theta, np.power(slope, range(1,degree+1)))]
+            links.append((startnode, endnode, route, ffdelay, (ffdelay, slope, coef)))
     
-    grid.add_path([(3,6,1)])
-    grid.add_path([(3,2,1), (2,1,1), (1,4,1)])
-    grid.add_path([(3,2,1), (2,5,1), (5,4,1)])
-    grid.add_path([(3,6,1), (6,5,1), (5,4,1)])
-    grid.add_path([(3,6,1), (6,5,1), (5,2,1), (2,1,1), (1,4,1)])
-    grid.add_path([(3,2,1)])
-    grid.add_path([(3,6,1), (6,5,1), (5,2,1)])
-    grid.add_path([(2,1,1), (1,4,1)])
-    grid.add_path([(2,5,1), (5,4,1)])
-    return grid
+    if multiple:
+        graph1 = g.create_graph_from_list(nodes, links, delaytype, ODs1, 'Map of L.A.')
+        graph2 = g.create_graph_from_list(nodes, links, delaytype, ODs2, 'Map of L.A.')
+        graph3 = g.create_graph_from_list(nodes, links, delaytype, ODs3, 'Map of L.A.')
+        return graph1, graph2, graph3
+    else:
+        return g.create_graph_from_list(nodes, links, delaytype, ODs, 'Map of L.A.')
 
 
 def main():
     #graph = small_example()
-    graph = small_grid()
-    graph.visualize(True, True, True, True, True)    
-
+    #graph = small_grid([3.0, 3.0, 1.0, 1.0])
+    #graph = small_grid([3.0, 3.0, 1.0, 1.0], 'Polynomial', [1.0, 2.0, 3.0])
+    #graph.visualize(True, True, True, True, True)
+    theta = matrix([0.0, 0.0, 0.0, 1.0])
+    theta /= np.sum(theta)
+    theta *= 0.15
+    graph = los_angeles(theta, 'Polynomial')
+    graph.visualize(True, True, True, True, True)
+    
 
 if __name__ == '__main__':
     main()

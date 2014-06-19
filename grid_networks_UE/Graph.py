@@ -5,10 +5,12 @@ Created on Apr 18, 2014
 '''
 
 from cvxopt import matrix
+import numpy as np
 
 class Graph:
     """A graph containing nodes and links"""
-    def __init__(self, description=None, nodes={}, links={}, ODs={}, paths={}, numnodes=0, numlinks=0, numODs=0, numpaths=0, nodes_position={}, indlinks={}, indods={}, indpaths={}):
+    def __init__(self, description=None, nodes={}, links={}, ODs={}, paths={}, 
+                 numnodes=0, numlinks=0, numODs=0, numpaths=0, nodes_position={}, indlinks={}, indods={}, indpaths={}):
         self.description = description
         self.nodes = nodes
         self.links = links
@@ -25,15 +27,21 @@ class Graph:
         
     
     def add_node(self, position=None):
-        """Add a node"""
+        """Add a node with coordinates as a tuple"""
         self.numnodes += 1
         self.nodes_position[self.numnodes] = position
         self.nodes[self.numnodes] = Node(position, inlinks={}, outlinks={}, startODs={}, endODs={})
+        
+        
+    def add_nodes_from_list(self, list):
+        """Add nodes from list of positions"""
+        for position in list: self.add_node(position)
         
           
     def add_link(self, startnode, endnode, route=1, flow=0.0, delay=0.0, ffdelay=0.0, delayfunc=None):
         """Add a link"""
         formatStr = 'ERROR: node {} doesn\'t exist, graph countains {} nodes.'
+        startnode, endnode, route = int(startnode), int(endnode), int(route)
         if startnode == endnode: print 'ERROR: self-loop not allowed.'; return
         if startnode < 1 or startnode > self.numnodes: print formatStr.format(startnode, self.numnodes); return
         if endnode < 1 or endnode > self.numnodes: print formatStr.format(endnode, self.numnodes); return
@@ -41,7 +49,7 @@ class Graph:
         if (startnode, endnode, route) in self.links:
             print 'ERROR: link ({},{},{}) already exists.'.format(startnode, endnode, route); return
         else:
-            link = Link(startnode, endnode, route, flow, delay, ffdelay, delayfunc, {})
+            link = Link(startnode, endnode, route, float(flow), float(delay), float(ffdelay), delayfunc, {})
             self.indlinks[(startnode, endnode, route)] = self.numlinks
             self.numlinks += 1
             self.links[(startnode, endnode, route)] = link
@@ -52,9 +60,18 @@ class Graph:
                 link.delay = delayfunc.compute_delay(link.flow)
                     
    
+    def add_links_from_list(self, list, delaytype):
+        """Add links from list
+        the list is must contain starnode, endnode, ffdelay, and parameters of delay functions
+        """
+        for startnode, endnode, route, ffdelay, parameters in list:
+            self.add_link(startnode, endnode, route, 0.0, ffdelay, ffdelay, delayfunc=create_delayfunc(delaytype, parameters))
+   
+   
     def add_od(self, origin, destination, flow=0.0):
         """Add an OD pair"""
         formatStr = 'ERROR: node {} doesn\'t exist, graph countains {} nodes.'
+        origin, destination = int(origin), int(destination)
         if origin == destination: print 'ERROR: self-loop not allowed.'; return
         if origin < 1 or origin > self.numnodes: print formatStr.format(origin, self.numnodes); return
         if destination < 1 or destination > self.numnodes: print formatStr.format(destination, self.numnodes); return
@@ -64,10 +81,17 @@ class Graph:
         else:
             self.indods[(origin, destination)] = self.numODs
             self.numODs += 1
-            od = OD(origin, destination, flow, {})
+            od = OD(origin, destination, float(flow), {})
             self.ODs[(origin, destination)] = od
             self.nodes[origin].startODs[(origin, destination)] = od
             self.nodes[destination].endODs[(origin, destination)] = od
+   
+   
+    def add_ods_from_list(self, list):
+        """Add OD's from list
+        the list is must contain origin, destimation, ffdelay, flow
+        """
+        for origin, destination, flow in list: self.add_od(origin, destination, flow)
    
    
     def add_path(self, link_ids):
@@ -98,7 +122,7 @@ class Graph:
             self.links[(link.startnode, link.endnode, link.route)].paths[(origin, destination, route)] = path   
         
         
-    def visualize(self, general=False, nodes=False, links=False, ODs=False, paths=False):
+    def visualize(self, general=False, nodes=False, links=False, ODs=False, paths=False, only_pos_flows=False, tol=1e-3):
         """Visualize graph"""
         if general:
             print 'Description: ', self.description
@@ -128,14 +152,15 @@ class Graph:
      
         if links:    
             for id, link in self.links.items():
-                print 'Link id: ', id
-                print 'Flow: ', link.flow
-                print 'Number of paths: ', link.numpaths
-                print 'Paths: ', link.paths
-                print 'Delay: ', link.delay
-                print 'Free flow delay: ', link.ffdelay
-                print 'Type of delay function: ', link.delayfunc.type
-                print
+                if link.flow > tol or not only_pos_flows:
+                    print 'Link id: ', id
+                    print 'Flow: ', link.flow
+                    print 'Number of paths: ', link.numpaths
+                    print 'Paths: ', link.paths
+                    print 'Delay: ', link.delay
+                    print 'Free flow delay: ', link.ffdelay
+                    if link.delayfunc is not None: print 'Type of delay function: ', link.delayfunc.type
+                    print
         
         if ODs:
             for id, od in self.ODs.items():
@@ -229,17 +254,42 @@ class AffineDelay:
     """Affine Delay function"""
     def __init__(self, ffdelay, slope):
         self.ffdelay = ffdelay
-        self.slope = slope
+        self.slope = slope # this can be seen as inverse capacities
         self.type = 'Affine'
         
     def compute_delay(self, flow):
         return self.ffdelay + self.slope*flow
+       
+       
+class PolyDelay:
+    """Polynomial Delay function"""
+    def __init__(self, ffdelay, slope, coef):
+        self.ffdelay = ffdelay
+        self.slope = slope # this can be seen as inverse capacities
+        self.coef = coef
+        self.degree = len(coef)
+        self.type = 'Polynomial'
+        
+    def compute_delay(self, flow):
+        return self.ffdelay + np.dot(self.coef, np.power(flow, range(1,self.degree+1)))
         
 
-def create_delayfunc(type, parameters):
+def create_delayfunc(type, parameters=None):
     """Create a Delay function of a specific type"""
+    if type == 'None': return None
     if type == 'Affine': return AffineDelay(parameters[0], parameters[1])
+    if type == 'Polynomial': return PolyDelay(parameters[0], parameters[1], parameters[2])
     if type == 'Other': return Other(parameters[0], parameters[1], parameters[2])
+
+
+def create_graph_from_list(list_nodes, list_links, delaytype, list_ods=None, description=None):
+    """Create a graph from a list of of nodes and links
+    """
+    graph = Graph(description, {},{},{},{},0,0,0,0,{},{},{},{})
+    graph.add_nodes_from_list(list_nodes)
+    graph.add_links_from_list(list_links, delaytype)
+    if list_ods is not None: graph.add_ods_from_list(list_ods)
+    return graph
 
         
 def create_grid(m, n, inright=None, indown=None, outright=None, outdown=None, 
@@ -260,7 +310,7 @@ def create_grid(m, n, inright=None, indown=None, outright=None, outdown=None,
     ...
     
     """
-    grid = Graph('Grid of size {}X{}'.format(m,n))
+    grid = Graph('Grid of size {}X{}'.format(m,n), {},{},{},{},0,0,0,0,{},{},{},{})
     [grid.add_node((j, m-i-1)) for i in range(m) for j in range(n)]
     
     if not inright is None:
