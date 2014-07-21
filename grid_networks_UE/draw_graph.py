@@ -39,13 +39,14 @@ def draw(graph, link_ids=None, G=None, width=7, alpha=0.5, edge_color='r'):
     plt.show()
     
     
-def draw_delays(graph, G=None, width=7, alpha=0.5, levels=[1.5, 2.0, 3.0], tol=1e-8):
+def draw_delays(graph, linkflows=None, G=None, width=7, alpha=0.5, levels=[1.5, 2.0, 3.0], tol=1e-4):
     """Draw graph with delays
     
     Parameters
     ----------
     graph: graph object
-    G = networkx equivalent of the graph object
+    linkflows: only color edges with >0 flow
+    G: networkx equivalent of the graph object
     width: width of the highlights for the path
     alpha: transparency of the highlights
     levels: 3 levels of intensities
@@ -57,13 +58,19 @@ def draw_delays(graph, G=None, width=7, alpha=0.5, levels=[1.5, 2.0, 3.0], tol=1
     u = [f for f in levels]
     u.append(np.inf)
     l = [1.0+tol]
+    if linkflows is not None:
+        l = [1.0]
+    else:
+        linkflows = [np.inf]*graph.numlinks
     for f in levels: l.append(f)
-    
-    for link in graph.links.values():
-        delay, ffdelay, startnode, endnode = link.delay, link.ffdelay, link.startnode, link.endnode
-        for i in range(4):
-            if ffdelay * l[i] <= delay < ffdelay * u[i]: edgelists[i].append((startnode,endnode))
-    
+    #max = 0.0
+    for id,link in graph.links.items():
+        if linkflows[graph.indlinks[id]] > tol:
+            delay, ffdelay, startnode, endnode = link.delay, link.ffdelay, link.startnode, link.endnode
+            #if delay/ffdelay > max: max, s, e = delay/ffdelay, startnode, endnode 
+            for i in range(4):
+                if ffdelay * l[i] <= delay < ffdelay * u[i]: edgelists[i].append((startnode,endnode))
+    #print max, s, e
     for i in range(4):          
         nx.draw_networkx_edges(G, pos, edgelist=edgelists[i],
                                width=width, alpha=alpha, edge_color=colors[i],arrows=False)

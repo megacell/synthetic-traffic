@@ -7,64 +7,51 @@ Created on Apr 21, 2014
 import numpy as np
 import ue_solver as ue
 import draw_graph as d
-from test_graph import small_grid, small_example, los_angeles
+from test_graph import small_example, los_angeles
 from cvxopt import matrix
 
-od_flows1 = [3.0, 3.0, 1.0, 1.0];
-od_flows2 = [1.0, 1.0, 1.0, 4.0];
 
-def affine():
-    graph = small_grid(od_flows2)
-    #graph = small_example()
-    linkflows_obs, indlinks_obs = [1.46, 3.54], [(2,1,1), (5,4,1)]
-    linkflows = ue.solver(graph, linkflows_obs=linkflows_obs, indlinks_obs=indlinks_obs, soft=100.0)
+def test1():
+    graph = small_example()
+    linkflows = ue.solver(graph)
     print 'links\' indices: ', graph.indlinks
     print 'UE flow: '
     print linkflows
-    unusedpaths = ue.unused_paths(graph)
-    print
-    print 'Unused paths: ', unusedpaths
-    #ue.save_mat('../Dropbox/Mega_Cell/data/', 'ue_data2', graph)
-    graph.visualize(paths=True)
-    return graph, linkflows, unusedpaths
 
 
-def polynomial():
-    graph = small_grid(od_flows2, 'Polynomial', [3.0, 2.0, 1.0])
-    linkflows_obs, indlinks_obs = [1.617, 3.383], [(2,1,1), (5,4,1)]
-    linkflows = ue.solver(graph)
-    #linkflows = ue.solver(graph, linkflows_obs=linkflows_obs, indlinks_obs=indlinks_obs)
-    print 'UE flow: '
-    print linkflows
-    unusedpaths = ue.unused_paths(graph)
-    print
-    print 'Unused paths: ', unusedpaths
-    graph.visualize(links=True, paths=True)
-    return graph, linkflows, unusedpaths
+def test2():
+    theta = matrix([0.0, 0.0, 0.0, 0.15, 0.0, 0.0])
+    graph = los_angeles(theta, 'Polynomial')[0]
+    C,ind = ue.get_nodelink_incidence(graph)
+    print C
+    d = ue.get_demands(graph, ind, 22)
+    print d
+    Aeq, beq = ue.constraints(graph)
+    print Aeq.size
+    print beq.size
     
     
-def los_angeles_ue():
-    theta = matrix([0.0, 0.0, 0.0, 1.0, 0.0, 0.0])
-    theta /= np.sum(theta)
-    theta *= 0.15
-    graph1, graph2, graph3 = los_angeles(theta, 'Polynomial', True)
-    linkflows1 = ue.solver(graph1)
-    linkflows2 = ue.solver(graph2)
-    linkflows3 = ue.solver(graph3)
-    #print 'UE flow: '
-    #print 'links\' indices: ', graph.indlinks
-    #print linkflows
-    #graph.visualize(links=True, only_pos_flows=True)
-    d.draw_delays(graph1)
-    d.draw_delays(graph2)
-    d.draw_delays(graph3)
+def test3():
+    theta = matrix([0.0, 0.0, 0.0, 0.15, 0.0, 0.0])
+    g4 = los_angeles(theta, 'Polynomial')[3]
+    n = g4.numlinks
+    g4.add_path([(29,21,1), (21,14,1), (14,34,1), (34,12,1), (12,5,1)])
+    g4.add_path([(29,21,1), (21,14,1), (14,13,1), (13,12,1), (12,5,1)])
+    g4.add_path([(30,28,1), (28,22,1), (22,15,1), (15,13,1), (13,12,1), (12,5,1)])
+    g4.add_path([(30,28,1), (28,23,1), (23,16,1), (16,15,1), (15,13,1), (13,12,1), (12,5,1)])
+    l4, x4 = ue.solver(g4, update=True, full=True)
+    #d.draw_delays(g4, x4[:n])
+    #d.draw_delays(g4, x4[n:2*n])
+    #d.draw_delays(g4, x4[2*n:])
+    print l4
     
 
 def main():
-    #affine()
-    #polynomial()
-    los_angeles_ue()
+    #test1()
+    #test2()
+    test3()
     
 
 if __name__ == '__main__':
     main()
+    
