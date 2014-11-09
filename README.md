@@ -19,6 +19,7 @@ Contents
 2. [Toy networks](#toynetworks)
 3. [Grid networks](#gridnetworks)
 4. [Waypoints](#waypoints)
+5. [Grid networks in UE] (#gridnetworksue)
 
 <a name="generaldependencies"></a>
 1. General dependencies
@@ -62,6 +63,7 @@ Example grid network
 <img src="figures/grid_network.pdf" alt="Example grid network" width=300px />
 
 <a name="waypoints"></a>
+
 4. Waypoints
 ---------
 
@@ -84,3 +86,27 @@ Generate waypoints
 Example waypoints
 
 <img src="figures/waypoints.png" alt="Example waypoints" width=300px />
+
+
+5. Grid networks in UE
+-------------
+
+Dependencies for grid networks in UE
+
+    cvxopt
+    networkx
+
+Running 
+    
+    python test_ue_solver.py
+    python test_path_solver.py
+    python test_missing.py
+    python test_draw.py
+
+Coordinates for bounding box in L.A.: [-118.328299, 33.984601, -117.68132, 34.255881]
+
+<img src="figures/map_graph.jpg" width=300px />    
+
+Add flow in equilibrium to recreate congestion
+
+<img src="figures/map_congestion.jpg" width=300px />
