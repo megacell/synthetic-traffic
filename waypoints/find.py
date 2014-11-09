@@ -11,11 +11,11 @@ def find(names, sf, shapes,verbose=False,exact=False):
     r = []
     for i,record in enumerate(records):
         if exact:
-            r.extend([(i,x) for x in names if x == record[index]])
+            r.extend([(i,record[index]) for x in names if x == record[index]])
         else:
-            r.extend([(i,x) for x in names if x in record[index]])
+            r.extend([(i,record[index]) for x in names if x in record[index]])
     if verbose:
-        print [x[index] for (i,x) in r]
+        print [x for (i,x) in r]
 
     return [(x,shapes[i]) for (i,x) in r]
 
@@ -27,8 +27,13 @@ if __name__ == "__main__":
     import config as c
     sf = shapefile.Reader("%s/tigerroadsWGS84/tigerroadsWGS84" % c.DATA_DIR)
     shapes = sf.shapes()
+    import ipdb
+    ipdb.set_trace()
+    # Example of how to find new roads
+    # roads = find(['605'],sf,shapes,verbose=True)
 
     roads = []
-    for x in c.road_names:
-        roads.extend(find(x,sf,shapes))
+    roads = find(c.road_names,sf,shapes)
+    # for x in c.road_names:
+    #     roads.extend(find(x,sf,shapes))
     save(c,roads)

@@ -134,7 +134,7 @@ class Waypoints:
         self.wp['gaussian_points'] = np.array(waypoints)
 
     def show(self):
-        colors = 'crmgbyk'
+        colors = 'rbmgcyk'
 
         # draw bounding box
         bbox = self.bbox
@@ -157,45 +157,64 @@ class Waypoints:
 
     def save(self,c):
         import pickle
-        pickle.dump(self.wp,open('%s/%s' % (c.DATA_DIR,c.WAYPOINTS_FILE),'w'))
+        total = sum([len(v) for (k,v) in w.wp.iteritems()])
+        pickle.dump(self.wp,open('%s/%s' % (c.DATA_DIR,
+            c.WAYPOINTS_FILE % total),'w'))
+
+    def load(self,c):
+        import pickle
+        return pickle.load(open('%s/%s' % (c.DATA_DIR,c.WAYPOINTS_FILE)))
 
 if __name__ == "__main__":
+    rs = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4] 
+    rs = [0.1]
+
     import config as c
-    # Official bounding box: -118.328299, 33.984601, -117.68132, 34.255881
-    w = Waypoints(bbox=[-118.328299, 33.984601, -117.68132, 34.255881])
 
-    # uniform points
-    w.uniform_random(n=1000)
-    print "Uniform random waypoints selected"
+    for r in rs:
+        # Official bounding box: -118.328299, 33.984601, -117.68132, 34.255881
+        # w = Waypoints(bbox=[-118.328299, 33.984601, -117.68132, 34.255881])
+        w = Waypoints(bbox=[-118.373284700001, 33.9309546999998,-117.6511386, 34.2584316999999])
+        # w = Waypoints.load(c)
+        # with open('%s/ATNT/la-laccids-smallpoly-uniq-locs.csv' % c.DATA_DIR) as f:
+        #     points = f.readlines()
+        # import ipdb
+        # ipdb.set_trace()
 
-    # points along major roads
-    import pickle
-    roads = pickle.load(open('%s/%s' % (c.DATA_DIR,c.ROAD_FILE)))
-    w.gaussian_polyline([y.points for (x,y) in roads],n=1000)
-    print "Polyline gaussian waypoints selected"
+        # uniform points
+        w.uniform_random(n=100*r) # 1000
+        print "Uniform random waypoints selected"
 
-    # points around PEMS sensors
-    import csv
-    with open('%s/%s' % (c.DATA_DIR,c.SENSOR_FILE)) as csvfile:
-        sensor_reader = csv.DictReader(csvfile)
-        sensors = [(float(row['Longitude']),float(row['Latitude'])) for row \
-                in sensor_reader]
-        w.gaussian_points(sensors,n=1000)
-    print "Point gaussian waypoints selected"
+        # points along major roads
+        import pickle
+        roads = pickle.load(open('%s/%s' % (c.DATA_DIR,c.ROAD_FILE)))
+        w.gaussian_polyline([y.points for (x,y) in roads],n=50*r) # 1000
+        print "Polyline gaussian waypoints selected"
 
-    # points by population
-    import shapefile
-    sf = shapefile.Reader("%s/workplace/tier1wgs84" % c.DATA_DIR)
-    shapeRecords = sf.shapeRecords()
-    areas = [x.record[1] for x in shapeRecords]
-    pop20 = [x.record[4] for x in shapeRecords]
-    pop35 = [x.record[8] for x in shapeRecords]
-    bbox = [x.shape.bbox for x in shapeRecords]
-    ind_bbox_filter = [(i,x) for (i,x) in enumerate(bbox) if w.in_box((x[0],x[1])) or w.in_box((x[2],x[3]))]
-    ind, bbox_filter = zip(*ind_bbox_filter)
-    pop20_filter = [pop20[x] for x in ind] 
-    w.uniform_random_bbox(pop20_filter,bbox_filter,n=3000)
-    print "Bbox uniform waypoints selected"
+        # points around PEMS sensors
+        # import csv
+        # with open('%s/%s' % (c.DATA_DIR,c.SENSOR_FILE)) as csvfile:
+        #     sensor_reader = csv.DictReader(csvfile)
+        #     sensors = [(float(row['Longitude']),float(row['Latitude'])) for row \
+        #             in sensor_reader]
+        #     w.gaussian_points(sensors,n=0) # 1000
+        # print "Point gaussian waypoints selected"
+
+        # points by population
+        import shapefile
+        sf = shapefile.Reader("%s/workplace/tier1wgs84" % c.DATA_DIR)
+        shapeRecords = sf.shapeRecords()
+        TAZ_IDs = [x.record[3] for x in shapeRecords]
+        areas = [x.record[1] for x in shapeRecords]
+        pop20 = [x.record[4] for x in shapeRecords]
+        emp20 = [x.record[6] for x in shapeRecords]
+        pop35 = [x.record[8] for x in shapeRecords]
+        bbox = [x.shape.bbox for x in shapeRecords]
+        ind_bbox_filter = [(i,x) for (i,x) in enumerate(bbox) if w.in_box((x[0],x[1])) or w.in_box((x[2],x[3]))]
+        ind, bbox_filter = zip(*ind_bbox_filter)
+        ppl20_filter = [emp20[x] for x in ind] 
+        w.uniform_random_bbox(ppl20_filter,bbox_filter,n=800*r) # 1000
+        print "Bbox uniform waypoints selected"
 
     # plot
     w.show()
