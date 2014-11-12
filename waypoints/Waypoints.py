@@ -1,6 +1,10 @@
+import ipdb
+
 import numpy as np
 from matplotlib import pyplot as plt
 import numpy.linalg as la
+
+from scipy.sparse import csr_matrix
 
 class Waypoints:
 
@@ -165,8 +169,147 @@ class Waypoints:
         import pickle
         return pickle.load(open('%s/%s' % (c.DATA_DIR,c.WAYPOINTS_FILE)))
 
+    def closest_to_point(self, point, fast=False):
+        """Find closest waypoint to a point (x,y)
+        Note: fast is only available in Rectangle class"""
+        min_dist = np.inf
+        # TODO fast method not used here, update?
+        if fast:
+            x1,y1,x2,y2 = self.geometry
+            res = self.partition[0]
+            w, h = (x2-x1)/res[0], (y2-y1)/res[1]
+            i = min(int(floor((point[0]-x1)/w)), res[0]-1)
+            j = min(int(floor((point[1]-y1)/h)), res[1]-1)
+            ids = self.partition[1][(i,j)]
+        else:
+            ids = self.wp.keys() #explore all ids
+        for id in ids:
+            x, y = self.wp[id][:,0], self.wp[id][:,1]
+            d = np.linalg.norm([point[0]-x, point[1]-y], axis=0)
+            d_min, i_min = np.min(d), np.argmin(d)
+            if d_min < min_dist: min_dist, wp_id = d_min, (id,i_min)
+        return wp_id
+
+
+    def closest_to_line(self, directed_line, n, fast=False):
+        """Find list of closest waypoints to a directed_line
+
+        Parameters:
+        ----------
+        directed_line: (x1,y1,x2,y2)
+        n: number of points to take on the line
+        """
+        x1,y1,x2,y2 = directed_line
+        for k,t in enumerate(np.linspace(0,1,n)):
+            if k == 0: ids = [self.closest_to_point((x1,y1), fast)]
+            if k > 0:
+                id = self.closest_to_point((x1+t*(x2-x1), y1+t*(y2-y1)), fast)
+                if id != ids[-1]: ids.append(id)
+        return ids
+
+
+    def closest_to_polyline(self, polyline, n, fast=False):
+        """Find list of closest waypoints to a directed polyline
+
+        Parameters:
+        ----------
+        polyline: list of directed lines [(x1,y1,x2,y2)]
+        n: number of points to take on each line of the polyline
+        """
+        ids = []
+        for k, line in enumerate(polyline):
+            if k == 0: ids = self.closest_to_line(line, n, fast)
+            if k > 0:
+                tmp = self.closest_to_line(line, n, fast)
+                if ids[-1] == tmp[0]: ids += tmp[1:]
+                if ids[-1] != tmp[0]: ids += tmp
+        return ids
+
+
+    def closest_to_path(self, graph, path, n, fast=False):
+        """Find list of closest waypoints to a path in the graph
+
+        Parameters:
+        ----------
+        graph: Graph object
+        path: sequence of nodes in path
+        n: number of points to take on each link of the path
+        """
+        polyline = []
+        pos = [graph.node[x]['pos'] for x in path]
+        for (i,x) in enumerate(pos[:-1]):
+            x1, y1 = x
+            x2, y2 = pos[i+1]
+            polyline.append((x1,y1,x2,y2))
+        return self.closest_to_polyline(polyline, n, fast)
+
+    def get_wp_trajs(self, graph, routes, r_ids, n, fast=False, tol=1e-3):
+        """Compute Waypoint trajectories and returns {path_id: wp_ids}, [(wp_traj, path_list, flow)]
+
+        Parameters:
+        ----------
+        graph: Graph object with path flows in it
+        n: number of points to take on each link of paths
+        fast: if True do fast computation
+        tol:
+
+        Return value:
+        ------------
+        path_wps: dictionary of paths with >tol flow with wp trajectory associated {path_id: wp_ids}
+        wp_trajs: list of waypoint trajectories with paths along this trajectory [(wp_traj, path_list, flow)]
+        """
+        path_wps, k = {}, 0
+        for i,r in enumerate(r_ids):
+            if routes[r]['flow'] > tol:
+                k += 1
+                if k%10 == 0: print 'Number of paths processed: ', k
+                ids = self.closest_to_path(graph, routes[r]['path'], n, fast=fast)
+                path_wps[i] = ids
+        wps_list, paths_list, flows_list = [], [], []
+        for path_id, wps in path_wps.items():
+            try:
+                index = wps_list.index(wps)
+                paths_list[index].append(path_id)
+                flows_list[index] += routes[r]['flow']
+            except ValueError:
+                wps_list.append(wps)
+                paths_list.append([path_id])
+                flows_list.append(routes[r]['flow'])
+        return path_wps, zip(wps_list, paths_list, flows_list)
+
+def simplex(graph, wp_trajs, withODs=False):
+    """Build simplex constraints from waypoint trajectories wp_trajs
+    wp_trajs is given by WP.get_wp_trajs()[1]
+    """
+    from cvxopt import matrix, spmatrix
+    n = len(wp_trajs)
+    I, J, r, i = [], [], matrix(0.0, (n,1)), 0
+    for i, (wp_traj, path_ids, flow) in enumerate(wp_trajs):
+        r[i] = flow
+        for id in path_ids:
+            I.append(i)
+            J.append(id)
+    U = to_sp(spmatrix(1.0, I, J, (n, len(graph.nz_routes))))
+    r = to_np(r)
+    if not withODs: return U, r
+    else:
+        U1, r1 = path.simplex(graph)
+        U, r = matrix([U, U1]), matrix([r, r1])
+        if rn.rank(U) < U.size[0]:
+            print 'Remove redundant constraint(s)'; ind = find_basis(U.trans())
+            return U[ind,:], r[ind]
+        return U, r
+
+# Helper functions
+# -------------------------------------
+def to_np(X):
+    return np.array(X).squeeze()
+
+def to_sp(X):
+    return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
+
 if __name__ == "__main__":
-    rs = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4] 
+    # rs = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4]
     rs = [0.1]
 
     import config as c

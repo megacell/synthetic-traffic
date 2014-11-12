@@ -1,3 +1,5 @@
+import ipdb
+
 import collections
 import random
 
@@ -5,178 +7,123 @@ import matplotlib
 import networkx as nx
 import numpy.random
 
-import small_graph
+def annotate_with_flows(grid, flow_from_each_node=1.0, num_nonzero_routes=2):
+    '''Generate traffic from each origin onto some small fraction of its routes, \
+            and compute the amount of flow at each edge.'''
 
-def get_route_indices_by_origin(routes):
-  route_indices_by_origin = collections.defaultdict(list)
-  for i, route in enumerate(routes):
-    route_indices_by_origin[route[0]].append(i)
-  return route_indices_by_origin
+    # collect routes by origin or by OD pair
+    # Note: All route indices are with respect to _routes_.
+    route_indices_by_origin = grid.get_route_indices_by_origin()
+    route_indices_by_OD = grid.get_route_indices_by_OD()
 
-def new_dict_OD(routes):
-  dict_OD = collections.defaultdict(list)
-  for i, route in enumerate(routes):
-    dict_OD[route[0]] = collections.defaultdict(list)
-  return dict_OD
+    flow_portions = [0] * len(grid.routes) # from origin
+    flow_portions_OD = [0] * len(grid.routes) # from origin to destination
+    flow_OD = grid.new_dict_OD()
 
-def get_route_indices_by_OD(routes):
-  route_indices_by_OD = new_dict_OD(routes)
-  for i, route in enumerate(routes):
-    route_indices_by_OD[route[0]][route[-1]].append(i)
-  return route_indices_by_OD
+    # initialize the flows, in case a node is not in the interior of any route
+    for n in grid.G.nodes():
+      grid.G.node[n]['2nd_flow'] = {}
 
-def get_OD_pairs(routes):
-  OD_pairs = collections.defaultdict(list)
-  for i, route in enumerate(routes):
-    OD_pairs[(route[0],route[-1])] = 1
-  return OD_pairs.keys()
+    # initialize all flows on edges to 0
+    for (u,v) in grid.G.edges():
+        grid.G.edge[u][v]['flow'] = 0
 
+    # sample routes and compute aggregate first-order, second-order info on
+    # origins and origin-destination pairs
 
-def annotate_with_flows(graph, routes, flow_from_each_node=1.0, num_nonzero_routes=2):
-  '''Generate traffic from each origin onto some small fraction of its routes, \
-          and compute the amount of flow at each edge.'''
-  
-  # collect routes by origin or by OD pair
-  # Note: All route indices are with respect to _routes_.
-  route_indices_by_origin = get_route_indices_by_origin(routes)
-  route_indices_by_OD = get_route_indices_by_OD(routes)
+    for origin in grid.G.nodes():
+        # consider all routes out of origin
+        route_indices_from_origin = route_indices_by_origin[origin]
+        #    num_nonzero_routes = max(1, int(sparsity * len(route_indices_from_origin)))
+        # select routes with non-zero flow
+        selected_route_indices = sorted(random.sample(route_indices_from_origin,
+                                                      num_nonzero_routes))
+        # probability prior (uniform dirichlet) on non-zero flow routes
+        selected_route_weights = numpy.random.dirichlet([1] * num_nonzero_routes,
+                                                        1)[0]
 
-  flow_portions = [0] * len(routes) # from origin
-  flow_portions_OD = [0] * len(routes) # from origin to destination
-  flow_OD = new_dict_OD(routes)
+        grid.update_flows(flow_portions, flow_from_each_node,
+                           selected_route_indices,selected_route_weights)
 
-  # initialize the flows, in case a node is not in the interior of any route
-  for n in graph.nodes():
-    graph.node[n]['2nd_flow'] = {}
+        # normalize flows for each OD pair
+        for dest in grid.G.nodes():
+            # normalize weights per OD pair
+            selected_route_indices_OD = route_indices_by_OD[origin][dest]
+            total = sum(flow_portions[i] for i in selected_route_indices_OD)
+            flow_OD[origin][dest] = total
+            if total == 0:
+                continue
+            for i in selected_route_indices_OD:
+                flow_portions_OD[i] = flow_portions[i]/total
 
-  # initialize all flows on edges to 0
-  for (u,v) in graph.edges():
-      graph.edge[u][v]['flow'] = 0
-  
-  # sample routes and compute aggregate first-order, second-order info on 
-  # origins and origin-destination pairs
-  for origin in graph.nodes():
-    # consider all routes out of origin
-    route_indices_from_origin = route_indices_by_origin[origin]
-#    num_nonzero_routes = max(1, int(sparsity * len(route_indices_from_origin)))
-    # select routes with non-zero flow
-    selected_route_indices = sorted(random.sample(route_indices_from_origin,
-            num_nonzero_routes))
-    # probability prior (uniform dirichlet) on non-zero flow routes
-    selected_route_weights = numpy.random.dirichlet([1] * num_nonzero_routes,
-            1)[0]
+    # return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
+    return grid.G, grid.routes
 
-    for i, w in zip(selected_route_indices, selected_route_weights):
-      flow_portions[i] = w
-      
-      # add up flows on each link
-      for u, v in zip(routes[i], routes[i][1:]):
-        graph.edge[u][v]['flow'] += flow_from_each_node * w
+def annotate_with_flows_dense_blocks(grid, flow_from_each_node=1.0, overall_sparsity=0.1):
+    '''Generate traffic from each origin onto some small fraction of its routes, \
+            and compute the amount of flow at each edge.'''
 
-      # add up "turn" information on each transition
-      # p = predecessor, n = node, s = successor
-      for p, n, s in zip(routes[i], routes[i][1:], routes[i][2:]):
-        # add "second order flow"
-        node = graph.node[n]
-        current_flow = node['2nd_flow'][(p, s)][0] if (p, s) in \
-                node['2nd_flow'] else 0
-        current_routes = node['2nd_flow'][(p, s)][1] if (p, s) in \
-                node['2nd_flow'] else set()
-        node['2nd_flow'][(p, s)] = (current_flow + flow_from_each_node * w,
-                current_routes | set([i]))
+    # collect routes by origin or by OD pair
+    # Note: All route indices are with respect to _routes_.
+    route_indices_by_origin = grid.get_route_indices_by_origin()
+    route_indices_by_OD = grid.get_route_indices_by_OD()
 
-    # normalize flows for each OD pair
-    for dest in graph.nodes():
-      # normalize weights per OD pair
-      selected_route_indices_OD = route_indices_by_OD[origin][dest]
-      total = sum(flow_portions[i] for i in selected_route_indices_OD)
-      flow_OD[origin][dest] = total
-      if total == 0:
-          continue
-      for i in selected_route_indices_OD:
-          flow_portions_OD[i] = flow_portions[i]/total
-      
-  return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
+    flow_portions = [0] * len(grid.routes) # from origin
+    flow_portions_OD = [0] * len(grid.routes) # from origin to destination
+    flow_OD = grid.new_dict_OD()
+    OD_pairs = grid.get_OD_pairs()
 
-def annotate_with_flows_dense_blocks(graph, routes, flow_from_each_node=1.0, overall_sparsity=0.1):
-  '''Generate traffic from each origin onto some small fraction of its routes, \
-          and compute the amount of flow at each edge.'''
-  
-  # collect routes by origin or by OD pair
-  # Note: All route indices are with respect to _routes_.
-  route_indices_by_origin = get_route_indices_by_origin(routes)
-  route_indices_by_OD = get_route_indices_by_OD(routes)
+    # initialize the flows, in case a node is not in the interior of any route
+    for n in grid.G.nodes():
+        grid.G.node[n]['2nd_flow'] = {}
 
-  flow_portions = [0] * len(routes) # from origin
-  flow_portions_OD = [0] * len(routes) # from origin to destination
-  flow_OD = new_dict_OD(routes)
-  OD_pairs = get_OD_pairs(routes)
+    # initialize all flows on edges to 0
+    for (u,v) in grid.G.edges():
+        grid.G.edge[u][v]['flow'] = 0
 
-  # initialize the flows, in case a node is not in the interior of any route
-  for n in graph.nodes():
-    graph.node[n]['2nd_flow'] = {}
+    # sample OD pairs
+    selected_OD_pairs = random.sample(OD_pairs, int(len(OD_pairs) * overall_sparsity))
+    for origin,dest in selected_OD_pairs:
+        flow_OD[origin][dest] = flow_from_each_node
+        selected_route_indices = route_indices_by_OD[origin][dest]
+        num_routes = len(selected_route_indices)
+        selected_route_weights = numpy.random.dirichlet([1] * num_routes, 1)[0]
 
-  # initialize all flows on edges to 0
-  for (u,v) in graph.edges():
-      graph.edge[u][v]['flow'] = 0
-  
-  # sample OD pairs
-  selected_OD_pairs = random.sample(OD_pairs, int(len(OD_pairs) * overall_sparsity)) 
-  for origin,dest in selected_OD_pairs:
-    flow_OD[origin][dest] = flow_from_each_node
-    selected_route_indices = route_indices_by_OD[origin][dest]
-    num_routes = len(selected_route_indices)
-    selected_route_weights = numpy.random.dirichlet([1] * num_routes,
-          1)[0]
+        grid.update_flows(flow_portions_OD, flow_from_each_node,
+                           selected_route_indices,selected_route_weights)
 
-    for i, w in zip(selected_route_indices, selected_route_weights):
-      flow_portions_OD[i] = w
-      
-      # add up flows on each link
-      for u, v in zip(routes[i], routes[i][1:]):
-        graph.edge[u][v]['flow'] += flow_from_each_node * w
+    # return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
+    return grid.G, grid.routes
 
-      # add up "turn" information on each transition
-      # p = predecessor, n = node, s = successor
-      for p, n, s in zip(routes[i], routes[i][1:], routes[i][2:]):
-        # add "second order flow"
-        node = graph.node[n]
-        current_flow = node['2nd_flow'][(p, s)][0] if (p, s) in \
-                node['2nd_flow'] else 0
-        current_routes = node['2nd_flow'][(p, s)][1] if (p, s) in \
-                node['2nd_flow'] else set()
-        node['2nd_flow'][(p, s)] = (current_flow + flow_from_each_node * w,
-                current_routes | set([i]))
-
-  return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
-          
 if __name__ == '__main__':
-  graph, routes, sensors = small_graph.generate_small_graph()
-  
-  print "Graph: "
-  print graph
-  print "Routes: "
-  print routes
-  print len(routes)
-  print "Sensors: "
-  print sensors
-  
-  annotate_with_flows(graph, routes)
+    from GridNetwork import GridNetwork
 
-  pos = nx.get_node_attributes(graph, 'pos')
-  nx.draw(graph,pos)
-  
-  edge_labels = collections.defaultdict(float)
-  for u, v, d in graph.edges(data=True):
-    if u > v:
-      u, v = v, u
-    edge_labels[(u, v)] += d['flow'] if 'flow' in d else 0
-#  edge_labels=dict([((u,v,),d['flow'] if 'flow' in d else 0)
-#                    for u,v,d in graph.edges(data=True)])
-  for u, v, d in graph.edges(data=True):
-    if u > v:
-      u, v = v, u
-    edge_labels[(u, v)] = round(edge_labels[(u, v)], 4)
-  nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels)
+    grid = GridNetwork()
 
-  matplotlib.pyplot.show()
+    print "Graph: "
+    print grid.G
+    print "Routes: "
+    # print grid.routes
+    print len(grid.routes)
+    print "Sensors: "
+    print grid.sensors
+
+    annotate_with_flows(grid)
+
+    pos = nx.get_node_attributes(grid.G, 'pos')
+    nx.draw(grid.G,pos)
+
+    edge_labels = collections.defaultdict(float)
+    for u, v, d in grid.G.edges(data=True):
+      if u > v:
+        u, v = v, u
+      edge_labels[(u, v)] += d['flow'] if 'flow' in d else 0
+    #  edge_labels=dict([((u,v,),d['flow'] if 'flow' in d else 0)
+    #                    for u,v,d in graph.edges(data=True)])
+    for u, v, d in grid.G.edges(data=True):
+      if u > v:
+        u, v = v, u
+      edge_labels[(u, v)] = round(edge_labels[(u, v)], 4)
+    nx.draw_networkx_edge_labels(grid.G, pos, edge_labels=edge_labels)
+
+    matplotlib.pyplot.show()
