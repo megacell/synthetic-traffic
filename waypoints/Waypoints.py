@@ -101,9 +101,9 @@ class Waypoints:
                         continue
                     for k in range(freq):
                         pos = np.random.random()
-                        x = p[i][j] + (np.subtract(p[i][j], p[i][j])) * pos
-                        dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
-                        dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
+                        x = p[i][j] + (np.subtract(p[i][j], p[i][j+1])) * pos
+                        dx = np.random.normal(scale=(self.bbox[2]-self.bbox[0])/tau)
+                        dy = np.random.normal(scale=(self.bbox[3]-self.bbox[1])/tau)
                         x = x + np.array([dx,dy])
                         if not self.in_box(x):
                             continue
@@ -126,8 +126,8 @@ class Waypoints:
                 samples = 1
             points_ind = np.random.randint(0,len(p),samples)
             for ind in points_ind:
-                dx = np.random.normal(scale=(w.bbox[2]-w.bbox[0])/tau)
-                dy = np.random.normal(scale=(w.bbox[3]-w.bbox[1])/tau)
+                dx = np.random.normal(scale=(self.bbox[2]-self.bbox[0])/tau)
+                dy = np.random.normal(scale=(self.bbox[3]-self.bbox[1])/tau)
                 x = p[ind] + np.array([dx,dy])
                 if not self.in_box(x):
                     continue
@@ -137,7 +137,7 @@ class Waypoints:
                     waypoints = x
         self.wp['gaussian_points'] = np.array(waypoints)
 
-    def show(self):
+    def draw(self):
         colors = 'rbmgcyk'
 
         # draw bounding box
@@ -157,11 +157,14 @@ class Waypoints:
         plt.xlabel('lat')
         plt.ylabel('lon')
         plt.legend(loc='upper right')
+
+    def show(self):
+        self.draw()
         plt.show()
 
     def save(self,c):
         import pickle
-        total = sum([len(v) for (k,v) in w.wp.iteritems()])
+        total = sum([len(v) for (k,v) in self.wp.iteritems()])
         pickle.dump(self.wp,open('%s/%s' % (c.DATA_DIR,
             c.WAYPOINTS_FILE % total),'w'))
 
@@ -243,7 +246,7 @@ class Waypoints:
             polyline.append((x1,y1,x2,y2))
         return self.closest_to_polyline(polyline, n, fast)
 
-    def get_wp_trajs(self, graph, routes, r_ids, n, fast=False, tol=1e-3):
+    def get_wp_trajs(self, graph, routes, n, r_ids=None, fast=False, tol=1e-3):
         """Compute Waypoint trajectories and returns {path_id: wp_ids}, [(wp_traj, path_list, flow)]
 
         Parameters:
@@ -258,40 +261,31 @@ class Waypoints:
         path_wps: dictionary of paths with >tol flow with wp trajectory associated {path_id: wp_ids}
         wp_trajs: list of waypoint trajectories with paths along this trajectory [(wp_traj, path_list, flow)]
         """
-        path_wps, k = {}, 0
-        for i,r in enumerate(r_ids):
-            if routes[r]['flow'] > tol:
-                k += 1
-                if k%10 == 0: print 'Number of paths processed: ', k
-                ids = self.closest_to_path(graph, routes[r]['path'], n, fast=fast)
-                path_wps[i] = ids
-        wps_list, paths_list, flows_list = [], [], []
-        for path_id, wps in path_wps.items():
-            try:
-                index = wps_list.index(wps)
-                paths_list[index].append(path_id)
-                flows_list[index] += routes[r]['flow']
-            except ValueError:
-                wps_list.append(wps)
-                paths_list.append([path_id])
-                flows_list.append(routes[r]['flow'])
-        return path_wps, zip(wps_list, paths_list, flows_list)
+        if not r_ids:
+            r_ids = xrange(len(routes))
+        path_wps = [self.closest_to_path(graph, routes[r]['path'], n,
+                                         fast=fast) for r in r_ids]
+        wps = {}
+        for value,key in enumerate(path_wps):
+            wps.setdefault(tuple(key), []).append(value)
+        return path_wps, wps
 
-def simplex(graph, wp_trajs, withODs=False):
+def simplex(graph, withODs=False):
     """Build simplex constraints from waypoint trajectories wp_trajs
     wp_trajs is given by WP.get_wp_trajs()[1]
     """
     from cvxopt import matrix, spmatrix
-    n = len(wp_trajs)
-    I, J, r, i = [], [], matrix(0.0, (n,1)), 0
-    for i, (wp_traj, path_ids, flow) in enumerate(wp_trajs):
-        r[i] = flow
+    n = len(graph.wp_trajs)
+    I, J, r = [], [], matrix(0.0, (n,1))
+    for i, (wp_traj, path_ids) in enumerate(graph.wp_trajs.iteritems()):
+        r[i] = graph.cp_flows[i]
         for id in path_ids:
             I.append(i)
             J.append(id)
-    U = to_sp(spmatrix(1.0, I, J, (n, len(graph.nz_routes))))
+    U = to_sp(spmatrix(1.0, I, J, (n, len(graph.routes))))
     r = to_np(r)
     if not withODs: return U, r
+    # FIXME below not used
     else:
         U1, r1 = path.simplex(graph)
         U, r = matrix([U, U1]), matrix([r, r1])

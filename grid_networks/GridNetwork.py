@@ -11,9 +11,12 @@ sys.path.append(lib_path)
 from YenKSP import graph
 from YenKSP import algorithms
 import collections
+import numpy as np
+from scipy.sparse import csr_matrix
 
 from waypoints.Waypoints import Waypoints
 import flows
+import matplotlib.pyplot as plt
 
 class GridNetwork:
 
@@ -36,7 +39,7 @@ class GridNetwork:
 
         self.wp = self.sample_waypoints()
 
-        self.path_wps, self.wp_trajs = None, None
+        self.path_wps, self.wp_trajs, self.cp_flows = None, None, None
         self.nz_routes = None
 
     def construct_grid(self):
@@ -153,14 +156,30 @@ class GridNetwork:
             OD_pairs[(r['path'][0],r['path'][-1])] = 1
         return OD_pairs.keys()
 
-    def sample_waypoints(self):
+    def get_heavy_edges(self, thresh=5):
+        heavy = []
+        for o,do in self.G.edge.items():
+            for d,v in do.items():
+                if v['weight'] >= thresh:
+                    heavy.append((o,d))
+        return heavy
+
+    def sample_waypoints(self, NB=60, NS=0, NL=15, thresh=5, n=10):
         # TODO add arguments consistent with ISTTT for types of waypoints
         bbox = self.get_bounding_box()
         wp = Waypoints(bbox=bbox)
-        wp.uniform_random(n=5)
+        wp.uniform_random(n=NB) # uniformly sample points in bbox
+
+        # sample points along heavy edges (main roads)
+        heavy_edges = self.get_heavy_edges(thresh=thresh)
+        heavy_points =[(self.G.node[e[0]]['pos'],self.G.node[e[1]]['pos']) \
+                       for e in heavy_edges]
+        wp.gaussian_polyline(heavy_points,n=NL,tau=30)
+        # TODO write new wp function to sample along lines instead of polylines
+        # alternatively, sample along a collection of 2-point polylines
+
         # print wp.closest_to_polyline([[0,0,2,2],[0,1,-1,2]],10)
         # print wp.closest_to_path(self.G, self.routes[10], 10)
-        # ipdb.set_trace()
 
         # TODO: give routes of highways and stuff
         # wp.gaussian_polyline(n=5)
@@ -170,19 +189,32 @@ class GridNetwork:
 
     def get_wp_trajs(self, n, fast=False, tol=1e-3):
         self.path_wps, self.wp_trajs = self.wp.get_wp_trajs(self.G,self.routes,
-                                self.nz_routes, n, fast=fast, tol=tol)
+                                n, None, fast=fast, tol=tol)
+
+    def update_cp_flows(self):
+        self.cp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
+                         paths in self.wp_trajs.values()]
+
+    def update_od_flows(self, od_flows):
+        self.od_flows = od_flows
 
     def sample_OD_flow_sparse(self, flow_from_each_node=1.0,
                             num_nonzero_routes=2):
-        self.G, self.routes = flows.annotate_with_flows(self,
-                            flow_from_each_node=flow_from_each_node,
+        self.o_flow = flow_from_each_node
+        self.G, self.routes, self.od_flows = flows.annotate_with_flows(self,
+                            flow_from_each_node=self.o_flow,
                             num_nonzero_routes=num_nonzero_routes)
+        self.update_cp_flows()
         self.update_nz_routes()
 
     def sample_OD_flow_dense(self, flow_from_each_node=1.0,
                                          overall_sparsity=0.1):
-        self.G, self.routes = flows.annotate_with_flows_dense_blocks(self,
-                            flow_from_each_node=1.0, overall_sparsity=0.1)
+        self.o_flow = flow_from_each_node
+        self.G, self.routes, self.od_flows = \
+            flows.annotate_with_flows_dense_blocks(self,
+                            flow_from_each_node=self.o_flow,
+                            overall_sparsity=overall_sparsity)
+        self.update_cp_flows()
         self.update_nz_routes()
 
     def update_flows(self, flow_portions, flow_from_each_node, r_ind, r_weights):
@@ -208,23 +240,54 @@ class GridNetwork:
                                             current_routes | set([i]))
 
     def update_nz_routes(self, tol=1e-3):
-        self.nz_routes = [i for (i,r) in enumerate(self.routes) if r['flow'] > tol]
+        self.nz_routes = [i for (i,r) in enumerate(self.routes) if r['flow']>tol]
+
+    def simplex(self):
+        """Build simplex constraints from od flows
+        """
+        from cvxopt import matrix, spmatrix
+        rids = self.get_route_indices_by_OD()
+        n = sum([len(v) for v in self.od_flows.values()])
+        m = len(self.routes)
+        I, J, d, k = [], [], matrix(0.0, (n,1)), 0
+        for i in self.od_flows.keys():
+            for j, od_flow in self.od_flows[i].iteritems():
+                d[k] = od_flow
+                for rid in rids[i][j]:
+                    I.append(k)
+                    J.append(rid)
+                k += 1
+        T = to_sp(spmatrix(1.0, I, J, (n, m)))
+        d = to_np(d)
+        return T, d
 
     def draw_graph(self):
+        # draw nodes and edges
         pos = nx.get_node_attributes(self.G,'pos')
-
         nx.draw(self.G,pos)
+        plt.hold()
 
-        edge_labels=dict([((u,v,),d['weight'])
-                          for u,v,d in self.G.edges(data=True)])
-
-        nx.draw_networkx_edge_labels(self.G, pos, edge_labels=edge_labels)
-
-        nx.draw_networkx_edges(self.G, pos, edgelist=self.sensors, width=3,
+        # draw edge weights
+        edge_to_weight=dict([((u,v,),d['weight']) for u,v,d in self.G.edges(data=True)])
+        from collections import defaultdict
+        dd = defaultdict(list)
+        for k, v in edge_to_weight.iteritems():
+            dd[v].append(k)
+        weight_to_edge = dict(dd)
+        for k,v in weight_to_edge.iteritems():
+            nx.draw_networkx_edges(self.G, pos, edgelist=v, width=k,
+                                   alpha=0.5, edge_color='k')
+        # draw sensors
+        nx.draw_networkx_edges(self.G, pos, edgelist=self.sensors, width=1,
                                alpha=0.5, edge_color='b')
 
-        import matplotlib.pyplot
-        matplotlib.pyplot.show()
+# Helper functions
+# -------------------------------------
+def to_np(X):
+    return np.array(X).squeeze()
+
+def to_sp(X):
+    return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
 
 if __name__ == '__main__':
 

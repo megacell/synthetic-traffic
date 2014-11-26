@@ -57,7 +57,7 @@ def annotate_with_flows(grid, flow_from_each_node=1.0, num_nonzero_routes=2):
                 flow_portions_OD[i] = flow_portions[i]/total
 
     # return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
-    return grid.G, grid.routes
+    return grid.G, grid.routes, flow_OD
 
 def annotate_with_flows_dense_blocks(grid, flow_from_each_node=1.0, overall_sparsity=0.1):
     '''Generate traffic from each origin onto some small fraction of its routes, \
@@ -93,7 +93,7 @@ def annotate_with_flows_dense_blocks(grid, flow_from_each_node=1.0, overall_spar
                            selected_route_indices,selected_route_weights)
 
     # return (flow_portions, flow_portions_OD,flow_OD) # used to generate real alpha
-    return grid.G, grid.routes
+    return grid.G, grid.routes, flow_OD
 
 if __name__ == '__main__':
     from GridNetwork import GridNetwork

@@ -8,10 +8,60 @@ import matplotlib
 import networkx as nx
 import numpy as np
 import scipy.io
+import scipy.sparse as sps
 
 from GridNetwork import GridNetwork
 from waypoints import Waypoints
 import flows
+
+# Clean array wrapper
+def array(x):
+    return np.squeeze(np.array(x))
+
+# Clean sparse matrix wrapper
+def sparse(A):
+    if type(A) == np.ndarray:
+        return sps.csr_matrix(A)
+    return A.tocsr()
+
+def assert_simplex_incidence(M,n):
+    """
+    1. Check that the width of the matrix is correct.
+    2. Check that each column sums to 1
+    3. Check that there are exactly n nonzero values
+    :param M:
+    :param n:
+    :return:
+    """
+    assert M.shape[1] == n, 'Incidence matrix: wrong size'
+    assert (M.sum(axis=0)-1).nonzero()[0].size == 0, \
+        'Incidence matrix: columns should sum to 1'
+    assert M.nnz == n, 'Incidence matrix: should be n nonzero values'
+
+def assert_scaled_incidence(M):
+    """
+    Check that all column entries are either 0 or the same entry value
+
+    :param M:
+    :return:
+    """
+    m,n = M.shape
+    col_sum = M.sum(axis=0)
+    col_nz = (M > 0).sum(axis=0)
+    entry_val = np.array([0 if M[:,i].nonzero()[0].size == 0 else \
+                              M[M[:,i].nonzero()[0][0],i] for i in range(n)])
+    assert (np.abs(array(col_sum) - array(col_nz) * entry_val) < 1e-10).all(), \
+        'Not a proper scaled incidence matrix, check column entries'
+
+def validate_data(A,b,x_true,U=None,r=None,T=None,d=None, n=0):
+    assert_scaled_incidence(A)
+    assert np.linalg.norm(A.dot(x_true) - b) == 0, 'Ax != b'
+    if U is not None and r is not None:
+        assert_simplex_incidence(U, n)
+        assert np.linalg.norm(U.dot(x_true) - r) == 0, 'Ux != r'
+    if T is not None and d is not None:
+        assert_simplex_incidence(T, n)
+        assert np.linalg.norm(T.dot(x_true) - d) == 0, 'Tx != d'
 
 def generate_static_matrix(grid, flow_from_each_node=1.0):
     # All route indices are with respect to _routes_.
@@ -25,34 +75,35 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
     num_routes = []
     for node in grid.G.nodes():
         route_indices_from_node = route_indices_by_origin[node]
-        edges_in_route = [collections.Counter(zip(grid.routes[i],
-                                            grid.routes[i][1:])) for i in \
+        edges_in_route = [collections.Counter(zip(grid.routes[i]['path'],
+                                    grid.routes[i]['path'][1:])) for i in \
                           route_indices_from_node]
 
         x = np.zeros(shape=len(route_indices_from_node))
         w = np.zeros(shape=len(route_indices_from_node))
         A = np.zeros(shape=(len(grid.sensors), len(route_indices_from_node)))
         for j in xrange(len(route_indices_from_node)):
-            x[j] = grid.flow_portions[route_indices_from_node[j]]
-            route = grid.routes[route_indices_from_node[j]]
-            w[j] = sum(1./grid.G[de[0]][de[1]]['weight'] for de in zip(route,
-                                                                route[1:]))
+            x[j] = grid.routes[route_indices_from_node[j]]['flow']
+            route = grid.routes[route_indices_from_node[j]]['path']
+            w[j] = sum(1./grid.G[de[0]][de[1]]['weight'] for de in \
+                       zip(route, route[1:]))
 
             for i in xrange(len(grid.sensors)):
                 if grid.sensors[i] in edges_in_route[j]:
-                    A[i, j] = flow_from_each_node
+                    A[i, j] = 1
 
         num_routes.append(len(route_indices_from_node))
         As.append(A)
         ws.append(w)
         xs.append(x)
-
     A,x,w = np.hstack(As), np.concatenate(xs), np.concatenate(ws)
     # FIXME need to regenerate b because some routes went over the same link
     # twice, which we aren't counting
     b = A.dot(x)
 
-    return A, x, w, b, np.array(num_routes)
+    T,d = grid.simplex()
+
+    return A, x, w, b, T, d, np.array(num_routes)
 
 def generate_static_matrix_OD(grid):
     # All route indices are with respect to _routes_.
@@ -71,8 +122,8 @@ def generate_static_matrix_OD(grid):
     for origin in grid.G.nodes():
         for dest in grid.G.nodes():
             selected_route_indices_by_OD = route_indices_by_OD[origin][dest]
-            edges_in_route = [collections.Counter(zip(grid.routes[i],
-                                            grid.routes[i][1:])) for i in \
+            edges_in_route = [collections.Counter(zip(grid.routes[i]['path'],
+                                            grid.routes[i]['path'][1:])) for i in \
                               selected_route_indices_by_OD]
             # CAUTION: routes may double-count links for some reason
 
@@ -83,34 +134,37 @@ def generate_static_matrix_OD(grid):
                                 len(selected_route_indices_by_OD)))
 
             # skip OD blocks that are all 0
-            if grid.flow_OD[origin][dest] == 0:
-                continue
-            if grid.flow_OD[origin][dest] == []:
-                continue
+            # if grid.od_flows[origin][dest] == 0:
+            #     continue
+            # if grid.od_flows[origin][dest] == []:
+            #     continue
 
             # build A, x, w block by block (1 origin)
             for j in xrange(len(selected_route_indices_by_OD)):
-                x[j] = grid.flow_portions[selected_route_indices_by_OD[j]]
-                route = grid.routes[selected_route_indices_by_OD[j]]
+                x[j] = grid.routes[selected_route_indices_by_OD[j]]['flow']
+                route = grid.routes[selected_route_indices_by_OD[j]]['path']
                 # TODO what is w?
                 w[j] = sum(1./grid.G[u][v]['weight'] for (u,v) in zip(route,
                                                                     route[1:]))
 
                 for i in xrange(len(grid.sensors)):
                     if grid.sensors[i] in edges_in_route[j]:
-                        A[i, j] = flow_from_each_node[origin][dest]
+                        A[i, j] = 1
 
             num_routes.append(len(selected_route_indices_by_OD))
             As.append(A)
             ws.append(w)
             xs.append(x)
 
+
     A,x,w = np.hstack(As), np.concatenate(xs), np.concatenate(ws)
     # FIXME need to regenerate b because some routes went over the same link
     # twice, which we aren't counting
     b = A.dot(x)
 
-    return A, x, w, b, np.array(num_routes)
+    T,d = grid.simplex()
+
+    return A, x, w, b, T, d, np.array(num_routes)
 
           
 def generate_random_matrix(grid, flow_from_each_node=1.0):
@@ -128,8 +182,8 @@ def generate_random_matrix(grid, flow_from_each_node=1.0):
         x = np.zeros(shape=len(route_indices_from_node))
         w = np.zeros(shape=len(route_indices_from_node))
         for j in xrange(len(route_indices_from_node)):
-            x[j] = grid.flow_portions[route_indices_from_node[j]]
-            route = grid.routes[route_indices_from_node[j]]
+            x[j] = grid.routes[route_indices_from_node[j]]['flow']
+            route = grid.routes[route_indices_from_node[j]]['path']
             w[j] = sum(1./grid.G[de[0]][de[1]]['weight'] for de in zip(route,
                                                                 route[1:]))
         num_routes.append(len(route_indices_from_node))
@@ -142,63 +196,52 @@ def generate_random_matrix(grid, flow_from_each_node=1.0):
 
     return A, x, np.concatenate(ws), b, np.array(num_routes)
 
-def assert_scaled_incidence(M):
-    """
-    Check that all column entries are either 0 or the same entry value
-    :param M:
-    :return:
-    """
-    m,n = M.shape
-    col_sum = M.sum(axis=0)
-    col_nz = (M > 0).sum(axis=0)
-    entry_val = np.array([0 if M[:,i].nonzero()[0].size == 0 else \
-                              M[M[:,i].nonzero()[0][0],i] for i in range(n)])
-    assert (np.abs(col_sum - col_nz * entry_val) < 1e-10).all(), \
-        'Not a proper scaled incidence matrix, check column entries'
-
 def export_matrices(prefix, num_rows, num_cols, num_routes_per_od_pair,
                     num_nonzero_routes_per_o):
 
     # G = (V,E,w)
     grid = GridNetwork(num_cols=num_cols,num_rows=num_rows,
                        num_routes_per_od_pair=num_routes_per_od_pair)
+    grid.get_wp_trajs(10)
     # (O,D),R,x
     grid.sample_OD_flow_sparse(1.0, num_nonzero_routes_per_o)
-    grid.get_wp_trajs(10)
-    U, r = Waypoints.simplex(grid, grid.wp_trajs)
     # TODO generate T,d
-    # TODO generate x
-    # TODO generate A,b
     # TODO generate V,g
-    ipdb.set_trace()
 
     # static matrix considering origin flows
-    A, x_true, w, b, num_routes = generate_static_matrix(grid)
-    assert_scaled_incidence(A)
+    A, x_true, w, b, T, d, num_routes = generate_static_matrix(grid)
+    U, r = Waypoints.simplex(grid)
+    validate_data(A,b,x_true,U=U,r=r,T=T,d=d,n=len(grid.routes))
     scipy.io.savemat(prefix + 'small_graph.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b': b, 'block_sizes': num_routes}, oned_as='column')
+                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': r},
+                     oned_as='column')
 
     # static matrix considering origin-destination flows
-    A, x_true, w, b, num_routes = generate_static_matrix_OD(grid)
-    assert_scaled_incidence(A)
+    A, x_true, w, b, T, d, num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,r=r,T=T,d=d,n=len(grid.routes))
     scipy.io.savemat(prefix + 'small_graph_OD.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b': b, 'block_sizes': num_routes}, oned_as='column')
+                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': r},
+                     oned_as='column')
 
     # random matrix 'considering origin flows'
     A, x_true, w, b, num_routes = generate_random_matrix(grid)
     scipy.io.savemat(prefix + 'small_graph_random.mat', {'A': A,
-                'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes},
-                     oned_as='column')
+                'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes,
+                'U': U, 'f': r,}, oned_as='column')
 
     # same graph but dense OD blocks (CANNOT be used for comparison with above)
     grid.sample_OD_flow_dense(1.0, overall_sparsity=0.1)
+    U, r = Waypoints.simplex(grid)
 
     # static matrix considering origin-destination flows
-    A, x_true, w, b, num_routes = generate_static_matrix_OD(grid)
+    A, x_true, w, b, T, d, num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,r=r,n=len(grid.routes))
+    print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
+    # FIXME Tx!=d
     assert_scaled_incidence(A)
     scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', {'A': A,
-                'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes},
-                     oned_as='column')
+                'x_true': x_true, 'w': w, 'b': b, 'T':T,'d':d,
+                'U': U, 'f': r}, oned_as='column')
 
 if __name__ == '__main__':
 
