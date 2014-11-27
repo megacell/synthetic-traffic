@@ -70,7 +70,7 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
     route_indices_by_origin = grid.get_route_indices_by_origin()
 
     # link flow vector
-    b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
+    # b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
 
     # initialize
     xs, ws, As, num_routes = [], [], [], []
@@ -113,7 +113,7 @@ def generate_static_matrix_OD(grid):
     route_indices_by_OD = grid.get_route_indices_by_OD()
 
     # link flow vector
-    b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
+    # b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
 
     # initialize
     xs, ws, As, num_routes = [], [], [], []

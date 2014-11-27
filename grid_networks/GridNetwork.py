@@ -42,7 +42,7 @@ class GridNetwork:
 
         # Generate sensors
         self.nz_routes = None
-        self.path_wps, self.wp_trajs, self.cp_flows = None, None, None
+        self.path_cps, self.cp_trajs, self.cp_flows = None, None, None
         self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
         self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=NLP)
         logging.debug('Sensors sampled')
@@ -132,39 +132,32 @@ class GridNetwork:
             k_shortests.extend(k_shortest)
         return k_shortests
 
-    def get_bounding_box(self, margin=0.05):
-        pos = nx.get_node_attributes(self.G,'pos')
-        x, y = zip(*pos.values())
-        x_min, x_max, y_min, y_max = min(x), max(x), min(y), max(y)
-        w, h = x_max-x_min, y_max-y_min
-        x1, x2, y1, y2 = x_min - w*margin, x_max + w*margin, y_min - h*margin,\
-                         y_max + h*margin
-        return x1, y1, x2, y2
-
-    def get_route_indices_by_origin(self):
+    def _get_route_indices_by_origin(self):
         route_indices_by_origin = collections.defaultdict(list)
         for i, r in enumerate(self.routes):
             route_indices_by_origin[r['o']].append(i)
         return route_indices_by_origin
 
-    def new_dict_OD(self):
+    def _new_dict_OD(self):
         dict_OD = collections.defaultdict(list)
         for i, r in enumerate(self.routes):
             dict_OD[r['o']] = collections.defaultdict(list)
         return dict_OD
 
-    def get_route_indices_by_OD(self):
-        route_indices_by_OD = self.new_dict_OD()
+    def _get_route_indices_by_OD(self):
+        route_indices_by_OD = self._new_dict_OD()
         for i, r in enumerate(self.routes):
             route_indices_by_OD[r['o']][r['d']].append(i)
         return route_indices_by_OD
 
-    def get_OD_pairs(self):
+    def _get_OD_pairs(self):
         OD_pairs = collections.defaultdict(list)
         for i, r in enumerate(self.routes):
             OD_pairs[(r['path'][0],r['path'][-1])] = 1
         return OD_pairs.keys()
 
+    # SAMPLE VARIOUS FLOWS (HELPER)
+    # --------------------------------------------------------------------------
     def _get_heavy_edges(self, thresh=5):
         heavy = []
         for o,do in self.G.edge.items():
@@ -173,6 +166,15 @@ class GridNetwork:
                     heavy.append((o,d))
         return heavy
 
+    def _get_bounding_box(self, margin=0.05):
+        pos = nx.get_node_attributes(self.G,'pos')
+        x, y = zip(*pos.values())
+        x_min, x_max, y_min, y_max = min(x), max(x), min(y), max(y)
+        w, h = x_max-x_min, y_max-y_min
+        x1, x2, y1, y2 = x_min - w*margin, x_max + w*margin, y_min - h*margin, \
+                         y_max + h*margin
+        return x1, y1, x2, y2
+
     # SAMPLE VARIOUS FLOWS
     # --------------------------------------------------------------------------
     def sample_sensors(self, NB=None, NS=None, NL=None, NLP=None, thresh=5, n=10):
@@ -180,28 +182,28 @@ class GridNetwork:
         self._sample_linkpath(N=NLP)
 
     def _sample_waypoints(self, NB=60, NS=0, NL=10, thresh=5, n=10):
-        bbox = self.get_bounding_box()
-        wp = Waypoints(bbox=bbox)
+        bbox = self._get_bounding_box()
+        cp = Waypoints(bbox=bbox)
 
         # uniformly sample points in bbox
         if NB is not None:
-            wp.uniform_random(n=NB)
+            cp.uniform_random(n=NB)
 
         # sample points along heavy edges (main roads)
         if NL is not None:
             heavy_edges = self._get_heavy_edges(thresh=thresh)
             heavy_points =[(self.G.node[e[0]]['pos'],self.G.node[e[1]]['pos']) \
                            for e in heavy_edges]
-            wp.gaussian_polyline(heavy_points,n=NL,tau=30)
+            cp.gaussian_polyline(heavy_points,n=NL,tau=30)
 
-        self.wp = wp
-        self.get_wp_trajs(n)
+        self.cp = cp
+        self._get_cp_trajs(n)
 
     def _sample_linkpath(self, N=10):
         self.lp = random.sample(self.G.edges(),N)
-        self.get_lp_trajs()
+        self._get_lp_trajs()
 
-    def get_lp_trajs(self, r_ids=None):
+    def _get_lp_trajs(self, r_ids=None):
         rs = self.routes
         if not r_ids:
             r_ids = xrange(len(rs))
@@ -214,8 +216,8 @@ class GridNetwork:
             del lps[()]
         self.path_lps, self.lp_trajs = path_lps, lps
 
-    def get_wp_trajs(self, n, fast=False, tol=1e-3):
-        self.path_wps, self.wp_trajs = self.wp.get_wp_trajs(self.G,self.routes,
+    def _get_cp_trajs(self, n, fast=False, tol=1e-3):
+        self.path_cps, self.cp_trajs = self.cp.get_wp_trajs(self.G,self.routes,
                                 n, fast=fast, tol=tol)
 
     def sample_OD_flow(self, o_flow=1.0, nnz_oroutes=2, sparsity=None):
@@ -234,12 +236,12 @@ class GridNetwork:
 
         # collect routes by origin or by OD pair
         # Note: All route indices are with respect to _routes_.
-        route_indices_by_origin = self.get_route_indices_by_origin()
-        route_indices_by_OD = self.get_route_indices_by_OD()
+        route_indices_by_origin = self._get_route_indices_by_origin()
+        route_indices_by_OD = self._get_route_indices_by_OD()
 
         flow_portions = [0] * len(self.routes) # from origin
         flow_portions_OD = [0] * len(self.routes) # from origin to destination
-        self.od_flows = self.new_dict_OD()
+        self.od_flows = self._new_dict_OD()
 
         # initialize the flows, in case a node is not in the interior of any route
         for n in self.G.nodes():
@@ -283,11 +285,11 @@ class GridNetwork:
 
         # collect routes by origin or by OD pair
         # Note: All route indices are with respect to _routes_.
-        route_indices_by_OD = self.get_route_indices_by_OD()
+        route_indices_by_OD = self._get_route_indices_by_OD()
 
         flow_portions_OD = [0] * len(self.routes) # from origin to destination
-        self.od_flows = self.new_dict_OD()
-        OD_pairs = self.get_OD_pairs()
+        self.od_flows = self._new_dict_OD()
+        OD_pairs = self._get_OD_pairs()
 
         # initialize the flows, in case a node is not in the interior of any route
         for n in self.G.nodes():
@@ -317,7 +319,7 @@ class GridNetwork:
 
     def _update_cp_flows(self):
         self.cp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
-                         paths in self.wp_trajs.values()]
+                         paths in self.cp_trajs.values()]
 
     def _update_od_flows(self, od_flows):
         self.od_flows = od_flows
@@ -361,7 +363,7 @@ class GridNetwork:
         """Build simplex constraints from od flows
         """
         from cvxopt import matrix, spmatrix
-        rids = self.get_route_indices_by_OD()
+        rids = self._get_route_indices_by_OD()
         n = sum([len(v) for v in self.od_flows.values()])
         m = len(self.routes)
         I, J, d, k = [], [], matrix(0.0, (n,1)), 0
@@ -377,36 +379,43 @@ class GridNetwork:
         return T, d
 
     def simplex_cp(self):
-        """Build simplex constraints from waypoint trajectories wp_trajs
-        wp_trajs is given by WP.get_wp_trajs()[1]
+        """Build simplex constraints from cellpath trajectories and flows
         """
-        from cvxopt import matrix, spmatrix
-        n = len(self.wp_trajs)
-        I, J, r = [], [], matrix(0.0, (n,1))
-        for i, (wp_traj, path_ids) in enumerate(self.wp_trajs.iteritems()):
-            r[i] = self.cp_flows[i]
-            for id in path_ids:
-                I.append(i)
-                J.append(id)
-        U = to_sp(spmatrix(1.0, I, J, (n, len(self.routes))))
-        r = to_np(r)
-        return U, r
+        return GridNetwork.simplex(len(self.routes),self.cp_trajs,self.cp_flows)
 
     def simplex_lp(self):
-        """Build simplex constraints from lp flows
+        """Build simplex constraints from linkpath trajectories and flows
+        """
+        return GridNetwork.simplex(len(self.routes),self.lp_trajs,self.lp_flows)
+
+    @staticmethod
+    def simplex(nroutes, traj, flows):
+        """
+        Build simplex matrix from nroutes (n), trajectories (m), and trajectory
+        flows
+
+        We represent each trajectory as its own row of "1"s (X). We represent the
+        respective trajectory flow vector (r).
+
+        Applicable to cellpath and linkpath flows
+
+        :param nroutes: number of routes
+        :param traj: dictionary keyed on the trajectory, valued on the
+                     respective list of routes
+        :param flows: trajectory flows
+        :return:
         """
         from cvxopt import matrix, spmatrix
-        n = len(self.lp_trajs)
-        m = len(self.routes)
+        m, n = nroutes, len(traj)
         I, J, r = [], [], matrix(0.0, (n,1))
-        for i, (lp_traj, path_ids) in enumerate(self.lp_trajs.iteritems()):
-            r[i] = self.lp_flows[i]
+        for i, path_ids in enumerate(traj.itervalues()):
+            r[i] = flows[i]
             for id in path_ids:
                 I.append(i)
                 J.append(id)
-        V = to_sp(spmatrix(1.0, I, J, (n, m)))
+        X = to_sp(spmatrix(1.0, I, J, (n, m)))
         r = to_np(r)
-        return V, r
+        return X, r
 
     # ART
     # --------------------------------------------------------------------------
@@ -417,7 +426,8 @@ class GridNetwork:
         plt.hold()
 
         # draw edge weights
-        edge_to_weight=dict([((u,v,),d['weight']) for u,v,d in self.G.edges(data=True)])
+        edge_to_weight=dict([((u,v,),d['weight']) for u,v,d in \
+                             self.G.edges(data=True)])
         from collections import defaultdict
         dd = defaultdict(list)
         for k, v in edge_to_weight.iteritems():
