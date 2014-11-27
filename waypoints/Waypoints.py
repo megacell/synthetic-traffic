@@ -270,30 +270,6 @@ class Waypoints:
             wps.setdefault(tuple(key), []).append(value)
         return path_wps, wps
 
-def simplex(graph, withODs=False):
-    """Build simplex constraints from waypoint trajectories wp_trajs
-    wp_trajs is given by WP.get_wp_trajs()[1]
-    """
-    from cvxopt import matrix, spmatrix
-    n = len(graph.wp_trajs)
-    I, J, r = [], [], matrix(0.0, (n,1))
-    for i, (wp_traj, path_ids) in enumerate(graph.wp_trajs.iteritems()):
-        r[i] = graph.cp_flows[i]
-        for id in path_ids:
-            I.append(i)
-            J.append(id)
-    U = to_sp(spmatrix(1.0, I, J, (n, len(graph.routes))))
-    r = to_np(r)
-    if not withODs: return U, r
-    # FIXME below not used
-    else:
-        U1, r1 = path.simplex(graph)
-        U, r = matrix([U, U1]), matrix([r, r1])
-        if rn.rank(U) < U.size[0]:
-            print 'Remove redundant constraint(s)'; ind = find_basis(U.trans())
-            return U[ind,:], r[ind]
-        return U, r
-
 # Helper functions
 # -------------------------------------
 def to_np(X):

@@ -53,26 +53,27 @@ def assert_scaled_incidence(M):
     assert (np.abs(array(col_sum) - array(col_nz) * entry_val) < 1e-10).all(), \
         'Not a proper scaled incidence matrix, check column entries'
 
-def validate_data(A,b,x_true,U=None,r=None,T=None,d=None, n=0):
+def validate_data(A,b,x_true,U=None,f=None,T=None,d=None,V=None,e=None,n=0):
     assert_scaled_incidence(A)
     assert np.linalg.norm(A.dot(x_true) - b) == 0, 'Ax != b'
-    if U is not None and r is not None:
+    if U is not None and f is not None:
         assert_simplex_incidence(U, n)
-        assert np.linalg.norm(U.dot(x_true) - r) == 0, 'Ux != r'
+        assert np.linalg.norm(U.dot(x_true) - f) == 0, 'Ux != r'
     if T is not None and d is not None:
         assert_simplex_incidence(T, n)
         assert np.linalg.norm(T.dot(x_true) - d) == 0, 'Tx != d'
+    if V is not None and e is not None:
+        assert np.linalg.norm(V.dot(x_true) - e) == 0, 'Vx != e'
 
 def generate_static_matrix(grid, flow_from_each_node=1.0):
     # All route indices are with respect to _routes_.
     route_indices_by_origin = grid.get_route_indices_by_origin()
 
+    # link flow vector
     b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
 
-    xs = []
-    ws = []
-    As = []
-    num_routes = []
+    # initialize
+    xs, ws, As, num_routes = [], [], [], []
     for node in grid.G.nodes():
         route_indices_from_node = route_indices_by_origin[node]
         edges_in_route = [collections.Counter(zip(grid.routes[i]['path'],
@@ -101,9 +102,11 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
     # twice, which we aren't counting
     b = A.dot(x)
 
-    T,d = grid.simplex()
+    T, d = grid.simplex_od()
+    U, f = grid.simplex_cp()
+    V, e = grid.simplex_lp()
 
-    return A, x, w, b, T, d, np.array(num_routes)
+    return A, x, w, b, T, d, U, f, V, e, np.array(num_routes)
 
 def generate_static_matrix_OD(grid):
     # All route indices are with respect to _routes_.
@@ -113,10 +116,7 @@ def generate_static_matrix_OD(grid):
     b = np.array([grid.G[u][v]['flow'] for (u,v) in grid.sensors])
 
     # initialize
-    xs = []
-    ws = []
-    As = []
-    num_routes = []
+    xs, ws, As, num_routes = [], [], [], []
 
     # build x, w, A, num_routes (for L1 constraints)
     for origin in grid.G.nodes():
@@ -156,15 +156,16 @@ def generate_static_matrix_OD(grid):
             ws.append(w)
             xs.append(x)
 
-
     A,x,w = np.hstack(As), np.concatenate(xs), np.concatenate(ws)
     # FIXME need to regenerate b because some routes went over the same link
     # twice, which we aren't counting
     b = A.dot(x)
 
-    T,d = grid.simplex()
+    T,d = grid.simplex_od()
+    U,f = grid.simplex_cp()
+    V,e = grid.simplex_lp()
 
-    return A, x, w, b, T, d, np.array(num_routes)
+    return A, x, w, b, T, d, U, f, V, e, np.array(num_routes)
 
           
 def generate_random_matrix(grid, flow_from_each_node=1.0):
@@ -196,52 +197,49 @@ def generate_random_matrix(grid, flow_from_each_node=1.0):
 
     return A, x, np.concatenate(ws), b, np.array(num_routes)
 
-def export_matrices(prefix, num_rows, num_cols, num_routes_per_od_pair,
-                    num_nonzero_routes_per_o):
+def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
+                 NS=20, NL=15, NLP=20):
 
     # G = (V,E,w)
-    grid = GridNetwork(num_cols=num_cols,num_rows=num_rows,
-                       num_routes_per_od_pair=num_routes_per_od_pair)
-    grid.get_wp_trajs(10)
+    grid = GridNetwork(ncol=ncol, nrow=nrow, nodroutes=nodroutes, NB=NB, NS=NS,
+                       NL=NL, NLP=NLP)
     # (O,D),R,x
-    grid.sample_OD_flow_sparse(1.0, num_nonzero_routes_per_o)
+    grid.sample_OD_flow(o_flow=1.0, nnz_oroutes=nnz_oroutes)
     # TODO generate T,d
     # TODO generate V,g
 
     # static matrix considering origin flows
-    A, x_true, w, b, T, d, num_routes = generate_static_matrix(grid)
-    U, r = Waypoints.simplex(grid)
-    validate_data(A,b,x_true,U=U,r=r,T=T,d=d,n=len(grid.routes))
+    A, x_true, w, b, T, d, U, f, V, e, num_routes = generate_static_matrix(grid)
+    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,e=e,n=len(grid.routes))
     scipy.io.savemat(prefix + 'small_graph.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': r},
+                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'e':e },
                      oned_as='column')
 
     # static matrix considering origin-destination flows
-    A, x_true, w, b, T, d, num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,r=r,T=T,d=d,n=len(grid.routes))
-    scipy.io.savemat(prefix + 'small_graph_OD.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': r},
+    A,x_true,w,b,T,d,U,f,V,e,num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,e=e,n=len(grid.routes))
+    scipy.io.savemat(prefix + 'small_graph_OD.mat', { 'A': A, 'x_true': x_true,
+                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'e':e },
                      oned_as='column')
 
     # random matrix 'considering origin flows'
-    A, x_true, w, b, num_routes = generate_random_matrix(grid)
-    scipy.io.savemat(prefix + 'small_graph_random.mat', {'A': A,
+    A,x_true,w,b,num_routes = generate_random_matrix(grid)
+    scipy.io.savemat(prefix + 'small_graph_random.mat', { 'A': A,
                 'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes,
-                'U': U, 'f': r,}, oned_as='column')
+                'U': U, 'f': f }, oned_as='column')
 
     # same graph but dense OD blocks (CANNOT be used for comparison with above)
-    grid.sample_OD_flow_dense(1.0, overall_sparsity=0.1)
-    U, r = Waypoints.simplex(grid)
+    grid.sample_OD_flow(o_flow=1.0, sparsity=0.1)
 
     # static matrix considering origin-destination flows
-    A, x_true, w, b, T, d, num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,r=r,n=len(grid.routes))
+    A,x_true,w,b,T,d,U,f,V,e,num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,f=f,V=V,e=e,n=len(grid.routes))
     print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
     # FIXME Tx!=d
     assert_scaled_incidence(A)
-    scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', {'A': A,
-                'x_true': x_true, 'w': w, 'b': b, 'T':T,'d':d,
-                'U': U, 'f': r}, oned_as='column')
+    scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', { 'A': A,
+                'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d,
+                'U':U, 'f':f, 'V':V, 'e':e }, oned_as='column')
 
 if __name__ == '__main__':
 
@@ -251,13 +249,13 @@ if __name__ == '__main__':
     parser.add_argument('--prefix', type=str,
                         help="Prefix where to export files to",
                         default='testtest_')
-    parser.add_argument('--num_rows', type=int,
+    parser.add_argument('--nrow', type=int,
                         help='Number of rows in the road grid.', default=5)
-    parser.add_argument('--num_cols', type=int,
+    parser.add_argument('--ncol', type=int,
                         help='Number of cols in the road grid.', default=5)
-    parser.add_argument('--num_routes_per_od', type=int,
+    parser.add_argument('--n_odroutes', type=int,
                         help='Number of routes per O-D pair.', default=2)
-    parser.add_argument('--num_nonzero_routes_per_o', type=int,
+    parser.add_argument('--nnz_oroutes', type=int,
                         help='Number of non-zero routes per origin.', default=2)
     args = parser.parse_args()
     #  num_rows = 5 if len(sys.argv) <= 1 else int(sys.argv[1])
@@ -265,5 +263,5 @@ if __name__ == '__main__':
     #  num_routes_per_od_pair = 2 if len(sys.argv) <= 3 else int(sys.argv[3])
     #  num_nonzero_routes_per_origin
 
-    export_matrices(args.prefix, args.num_rows, args.num_cols,
-                    args.num_routes_per_od, args.num_nonzero_routes_per_o)
+    export_matrices(args.prefix, args.nrow, args.ncol,
+                    n_odroutes=args.n_odroutes, nnz_oroutes=args.nnz_oroutes)
