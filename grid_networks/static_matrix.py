@@ -53,7 +53,7 @@ def assert_scaled_incidence(M):
     assert (np.abs(array(col_sum) - array(col_nz) * entry_val) < 1e-10).all(), \
         'Not a proper scaled incidence matrix, check column entries'
 
-def validate_data(A,b,x_true,U=None,f=None,T=None,d=None,V=None,e=None,n=0):
+def validate_data(A,b,x_true,U=None,f=None,T=None,d=None,V=None,g=None,n=0):
     assert_scaled_incidence(A)
     assert np.linalg.norm(A.dot(x_true) - b) == 0, 'Ax != b'
     if U is not None and f is not None:
@@ -62,8 +62,8 @@ def validate_data(A,b,x_true,U=None,f=None,T=None,d=None,V=None,e=None,n=0):
     if T is not None and d is not None:
         assert_simplex_incidence(T, n)
         assert np.linalg.norm(T.dot(x_true) - d) == 0, 'Tx != d'
-    if V is not None and e is not None:
-        assert np.linalg.norm(V.dot(x_true) - e) == 0, 'Vx != e'
+    if V is not None and g is not None:
+        assert np.linalg.norm(V.dot(x_true) - g) == 0, 'Vx != g'
 
 def generate_static_matrix(grid, flow_from_each_node=1.0):
     # All route indices are with respect to _routes_.
@@ -104,9 +104,9 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
 
     T, d = grid.simplex_od()
     U, f = grid.simplex_cp()
-    V, e = grid.simplex_lp()
+    V, g = grid.simplex_lp()
 
-    return A, x, w, b, T, d, U, f, V, e, np.array(num_routes)
+    return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
 
 def generate_static_matrix_OD(grid):
     # All route indices are with respect to _routes_.
@@ -161,11 +161,11 @@ def generate_static_matrix_OD(grid):
     # twice, which we aren't counting
     b = A.dot(x)
 
-    T,d = grid.simplex_od()
-    U,f = grid.simplex_cp()
-    V,e = grid.simplex_lp()
+    T, d = grid.simplex_od()
+    U, f = grid.simplex_cp()
+    V, g = grid.simplex_lp()
 
-    return A, x, w, b, T, d, U, f, V, e, np.array(num_routes)
+    return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
 
           
 def generate_random_matrix(grid, flow_from_each_node=1.0):
@@ -209,17 +209,17 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
     # TODO generate V,g
 
     # static matrix considering origin flows
-    A, x_true, w, b, T, d, U, f, V, e, num_routes = generate_static_matrix(grid)
-    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,e=e,n=len(grid.routes))
+    A, x_true, w, b, T, d, U, f, V, g, num_routes = generate_static_matrix(grid)
+    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
     scipy.io.savemat(prefix + 'small_graph.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'e':e },
+                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'g':g },
                      oned_as='column')
 
     # static matrix considering origin-destination flows
-    A,x_true,w,b,T,d,U,f,V,e,num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,e=e,n=len(grid.routes))
+    A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
     scipy.io.savemat(prefix + 'small_graph_OD.mat', { 'A': A, 'x_true': x_true,
-                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'e':e },
+                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'g':g },
                      oned_as='column')
 
     # random matrix 'considering origin flows'
@@ -232,14 +232,14 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
     grid.sample_OD_flow(o_flow=1.0, sparsity=0.1)
 
     # static matrix considering origin-destination flows
-    A,x_true,w,b,T,d,U,f,V,e,num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,f=f,V=V,e=e,n=len(grid.routes))
+    A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
+    validate_data(A,b,x_true,U=U,f=f,V=V,g=g,n=len(grid.routes))
     print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
     # FIXME Tx!=d
     assert_scaled_incidence(A)
     scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', { 'A': A,
                 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d,
-                'U':U, 'f':f, 'V':V, 'e':e }, oned_as='column')
+                'U':U, 'f':f, 'V':V, 'g':g }, oned_as='column')
 
 if __name__ == '__main__':
 

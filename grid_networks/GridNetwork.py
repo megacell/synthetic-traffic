@@ -16,7 +16,6 @@ import random
 from scipy.sparse import csr_matrix
 
 from waypoints.Waypoints import Waypoints
-import flows
 import matplotlib.pyplot as plt
 import logging
 
@@ -132,7 +131,7 @@ class GridNetwork:
             k_shortests.extend(k_shortest)
         return k_shortests
 
-    def _get_route_indices_by_origin(self):
+    def get_route_indices_by_origin(self):
         route_indices_by_origin = collections.defaultdict(list)
         for i, r in enumerate(self.routes):
             route_indices_by_origin[r['o']].append(i)
@@ -144,7 +143,7 @@ class GridNetwork:
             dict_OD[r['o']] = collections.defaultdict(list)
         return dict_OD
 
-    def _get_route_indices_by_OD(self):
+    def get_route_indices_by_OD(self):
         route_indices_by_OD = self._new_dict_OD()
         for i, r in enumerate(self.routes):
             route_indices_by_OD[r['o']][r['d']].append(i)
@@ -236,8 +235,8 @@ class GridNetwork:
 
         # collect routes by origin or by OD pair
         # Note: All route indices are with respect to _routes_.
-        route_indices_by_origin = self._get_route_indices_by_origin()
-        route_indices_by_OD = self._get_route_indices_by_OD()
+        route_indices_by_origin = self.get_route_indices_by_origin()
+        route_indices_by_OD = self.get_route_indices_by_OD()
 
         flow_portions = [0] * len(self.routes) # from origin
         flow_portions_OD = [0] * len(self.routes) # from origin to destination
@@ -285,7 +284,7 @@ class GridNetwork:
 
         # collect routes by origin or by OD pair
         # Note: All route indices are with respect to _routes_.
-        route_indices_by_OD = self._get_route_indices_by_OD()
+        route_indices_by_OD = self.get_route_indices_by_OD()
 
         flow_portions_OD = [0] * len(self.routes) # from origin to destination
         self.od_flows = self._new_dict_OD()
@@ -363,7 +362,7 @@ class GridNetwork:
         """Build simplex constraints from od flows
         """
         from cvxopt import matrix, spmatrix
-        rids = self._get_route_indices_by_OD()
+        rids = self.get_route_indices_by_OD()
         n = sum([len(v) for v in self.od_flows.values()])
         m = len(self.routes)
         I, J, d, k = [], [], matrix(0.0, (n,1)), 0
