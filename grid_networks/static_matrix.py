@@ -12,7 +12,6 @@ import scipy.sparse as sps
 
 from GridNetwork import GridNetwork
 from waypoints import Waypoints
-import flows
 
 # Clean array wrapper
 def array(x):
