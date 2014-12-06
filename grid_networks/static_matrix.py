@@ -253,7 +253,7 @@ if __name__ == '__main__':
                         help='Number of rows in the road grid.', default=5)
     parser.add_argument('--ncol', type=int,
                         help='Number of cols in the road grid.', default=5)
-    parser.add_argument('--n_odroutes', type=int,
+    parser.add_argument('--nodroutes', type=int,
                         help='Number of routes per O-D pair.', default=2)
     parser.add_argument('--nnz_oroutes', type=int,
                         help='Number of non-zero routes per origin.', default=2)
@@ -264,4 +264,4 @@ if __name__ == '__main__':
     #  num_nonzero_routes_per_origin
 
     export_matrices(args.prefix, args.nrow, args.ncol,
-                    n_odroutes=args.n_odroutes, nnz_oroutes=args.nnz_oroutes)
+                    nodroutes=args.nodroutes, nnz_oroutes=args.nnz_oroutes)
