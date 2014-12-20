@@ -279,8 +279,8 @@ def to_sp(X):
     return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
 
 if __name__ == "__main__":
-    # rs = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4]
-    rs = [0.1]
+    rs = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8]
+    # rs = [0.1]
 
     import config as c
 
@@ -295,7 +295,7 @@ if __name__ == "__main__":
         # ipdb.set_trace()
 
         # uniform points
-        w.uniform_random(n=100*r) # 1000
+        w.uniform_random(n=150*r) # 1000
         print "Uniform random waypoints selected"
 
         # points along major roads
@@ -328,6 +328,8 @@ if __name__ == "__main__":
         ppl20_filter = [emp20[x] for x in ind] 
         w.uniform_random_bbox(ppl20_filter,bbox_filter,n=800*r) # 1000
         print "Bbox uniform waypoints selected"
+
+        # w.save(c)
 
     # plot
     w.show()
