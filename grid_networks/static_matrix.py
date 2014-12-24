@@ -197,7 +197,7 @@ def generate_random_matrix(grid, flow_from_each_node=1.0):
     return A, x, np.concatenate(ws), b, np.array(num_routes)
 
 def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
-                 NS=20, NL=15, NLP=20):
+                 NS=20, NL=15, NLP=20, export=True, type='all'):
 
     # G = (V,E,w)
     grid = GridNetwork(ncol=ncol, nrow=nrow, nodroutes=nodroutes, NB=NB, NS=NS,
@@ -207,38 +207,48 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
     # TODO generate T,d
     # TODO generate V,g
 
-    # static matrix considering origin flows
-    A, x_true, w, b, T, d, U, f, V, g, num_routes = generate_static_matrix(grid)
-    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
-    scipy.io.savemat(prefix + 'small_graph.mat', {'A': A, 'x_true': x_true,
-                'w': w, 'b': b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'g':g },
-                     oned_as='column')
+    if type == 'all' or type == 'small_graph.mat':
+        # static matrix considering origin flows
+        A, x_true, w, b, T, d, U, f, V, g, num_routes = generate_static_matrix(grid)
+        validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
+        data = {'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U': U,
+                'f': f, 'V':V, 'g':g }
+        if export:
+            scipy.io.savemat(prefix + 'small_graph.mat', data, oned_as='column')
 
-    # static matrix considering origin-destination flows
-    A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
-    scipy.io.savemat(prefix + 'small_graph_OD.mat', { 'A': A, 'x_true': x_true,
-                'w': w, 'b':b, 'T':T, 'd':d, 'U': U, 'f': f, 'V':V, 'g':g },
-                     oned_as='column')
+    if type == 'all' or type == 'small_graph_OD.mat':
+        # static matrix considering origin-destination flows
+        A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
+        validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
+        data = { 'A': A, 'x_true': x_true, 'w': w, 'b':b, 'T':T, 'd':d, 'U': U,
+                 'f': f, 'V':V, 'g':g }
+        if export:
+            scipy.io.savemat(prefix + 'small_graph_OD.mat', data, oned_as='column')
 
-    # random matrix 'considering origin flows'
-    A,x_true,w,b,num_routes = generate_random_matrix(grid)
-    scipy.io.savemat(prefix + 'small_graph_random.mat', { 'A': A,
-                'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes,
-                'U': U, 'f': f }, oned_as='column')
+    if type == 'all' or type == 'small_graph_random.mat':
+        # random matrix 'considering origin flows'
+        A,x_true,w,b,num_routes = generate_random_matrix(grid)
+        data = { 'A': A,'x_true': x_true, 'w': w, 'b': b, 'block_sizes': num_routes,
+                    'U': U, 'f': f }
+        if export:
+            scipy.io.savemat(prefix + 'small_graph_random.mat', data, oned_as='column')
 
-    # same graph but dense OD blocks (CANNOT be used for comparison with above)
-    grid.sample_OD_flow(o_flow=1.0, sparsity=0.1)
+    if type == 'all' or type == 'small_graph_OD_dense.mat':
+        # same graph but dense OD blocks (CANNOT be used for comparison with above)
+        grid.sample_OD_flow(o_flow=1.0, sparsity=0.1)
 
-    # static matrix considering origin-destination flows
-    A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
-    validate_data(A,b,x_true,U=U,f=f,V=V,g=g,n=len(grid.routes))
-    print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
-    # FIXME Tx!=d
-    assert_scaled_incidence(A)
-    scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', { 'A': A,
-                'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d,
-                'U':U, 'f':f, 'V':V, 'g':g }, oned_as='column')
+        # static matrix considering origin-destination flows
+        A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
+        validate_data(A,b,x_true,U=U,f=f,V=V,g=g,n=len(grid.routes))
+        print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
+        # FIXME Tx!=d
+        assert_scaled_incidence(A)
+        data = { 'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U':U,
+                 'f':f, 'V':V, 'g':g }
+        if export:
+            scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', data, oned_as='column')
+
+    return data
 
 if __name__ == '__main__':
 
