@@ -9,19 +9,23 @@ import networkx as nx
 import numpy as np
 import scipy.io
 import scipy.sparse as sps
+import logging
 
 from GridNetwork import GridNetwork
 from waypoints import Waypoints
 
 # Clean array wrapper
 def array(x):
-    return np.squeeze(np.array(x))
+    return np.atleast_1d(np.squeeze(np.array(x)))
 
 # Clean sparse matrix wrapper
 def sparse(A):
     if type(A) == np.ndarray:
         return sps.csr_matrix(A)
     return A.tocsr()
+
+def sps2array(x):
+    return array(x.todense())
 
 def assert_simplex_incidence(M,n):
     """
@@ -44,7 +48,9 @@ def assert_scaled_incidence(M):
     :param M:
     :return:
     """
-    m,n = M.shape
+    if len(M.shape) == 1:
+        M = M.reshape((M.size,1))
+    n = M.shape[1]
     col_sum = M.sum(axis=0)
     col_nz = (M > 0).sum(axis=0)
     entry_val = np.array([0 if M[:,i].nonzero()[0].size == 0 else \
@@ -103,7 +109,7 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
 
     T, d = grid.simplex_od()
     U, f = grid.simplex_cp()
-    V, g = grid.simplex_lp()
+    V, g = grid.simplex_lp() if grid.lp is not None else (None, None)
 
     return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
 
@@ -120,9 +126,12 @@ def generate_static_matrix_OD(grid):
     # build x, w, A, num_routes (for L1 constraints)
     for origin in grid.G.nodes():
         for dest in grid.G.nodes():
+            if origin not in grid.od_flows or dest not in grid.od_flows[origin]:
+                pass
+
             selected_route_indices_by_OD = route_indices_by_OD[origin][dest]
             edges_in_route = [collections.Counter(zip(grid.routes[i]['path'],
-                                            grid.routes[i]['path'][1:])) for i in \
+                                        grid.routes[i]['path'][1:])) for i in \
                               selected_route_indices_by_OD]
             # CAUTION: routes may double-count links for some reason
 
@@ -162,7 +171,7 @@ def generate_static_matrix_OD(grid):
 
     T, d = grid.simplex_od()
     U, f = grid.simplex_cp()
-    V, g = grid.simplex_lp()
+    V, g = grid.simplex_lp() if grid.lp is not None else (None, None)
 
     return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
 
@@ -203,7 +212,10 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
     grid = GridNetwork(ncol=ncol, nrow=nrow, nodroutes=nodroutes, NB=NB, NS=NS,
                        NL=NL, NLP=NLP)
     # (O,D),R,x
-    grid.sample_OD_flow(o_flow=1.0, nnz_oroutes=nnz_oroutes)
+    if type == 'all' or type == 'small_graph.mat' or \
+                    type == 'small_graph_OD.mat' or \
+                    type == 'small_graph_random.mat':
+        grid.sample_OD_flow(o_flow=1.0, nnz_oroutes=nnz_oroutes)
     # TODO generate T,d
     # TODO generate V,g
 
@@ -211,8 +223,10 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
         # static matrix considering origin flows
         A, x_true, w, b, T, d, U, f, V, g, num_routes = generate_static_matrix(grid)
         validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
-        data = {'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U': U,
-                'f': f, 'V':V, 'g':g }
+        data = { 'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U':U,
+                 'f':f }
+        if V is not None and g is not None:
+            data['V'], data['g'] = V, g
         if export:
             scipy.io.savemat(prefix + 'small_graph.mat', data, oned_as='column')
 
@@ -220,8 +234,10 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
         # static matrix considering origin-destination flows
         A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
         validate_data(A,b,x_true,U=U,f=f,T=T,d=d,V=V,g=g,n=len(grid.routes))
-        data = { 'A': A, 'x_true': x_true, 'w': w, 'b':b, 'T':T, 'd':d, 'U': U,
-                 'f': f, 'V':V, 'g':g }
+        data = { 'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U':U,
+                 'f':f }
+        if V is not None and g is not None:
+            data['V'], data['g'] = V, g
         if export:
             scipy.io.savemat(prefix + 'small_graph_OD.mat', data, oned_as='column')
 
@@ -239,12 +255,24 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
 
         # static matrix considering origin-destination flows
         A,x_true,w,b,T,d,U,f,V,g,num_routes = generate_static_matrix_OD(grid)
-        validate_data(A,b,x_true,U=U,f=f,V=V,g=g,n=len(grid.routes))
-        print '|Tx-d| = ', np.linalg.norm(T.dot(x_true) - d)
-        # FIXME Tx!=d
+        nz = array(T.sum(axis=0).nonzero()[1])
+        z = array((T.sum(axis=0)-1).nonzero()[1])
+        if T.size == 0:
+            logging.error('T is empty, quitting')
+            return {'error' : 'T is empty'}
+        T, A, U, x_true = T[:,nz], A[:,nz], U[:,nz], x_true[nz]
+        b, d = A.dot(x_true), T.dot(x_true)
+        if V is not None and g is not None:
+            V = V[:,nz]
+            g = V.dot(x_true)
+        validate_data(A,b,x_true,U=U,f=f,V=V,g=g,n=nz.size)
+        assert np.linalg.norm(T.dot(x_true) - d) == 0, 'Tx != d'
         assert_scaled_incidence(A)
-        data = { 'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T':T, 'd':d, 'U':U,
-                 'f':f, 'V':V, 'g':g }
+        data = { 'A': A, 'x_true': x_true, 'w': w, 'b': b, 'T': T, 'd': d,
+                 'U': U, 'f': f }
+        if V is not None and g is not None:
+            data['V'], data['g'] = V, g
+
         if export:
             scipy.io.savemat(prefix + 'small_graph_OD_dense.mat', data, oned_as='column')
 

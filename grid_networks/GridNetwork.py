@@ -13,7 +13,7 @@ from YenKSP import algorithms
 import collections
 import numpy as np
 import random
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, coo_matrix
 
 from waypoints.Waypoints import Waypoints
 import matplotlib.pyplot as plt
@@ -43,7 +43,7 @@ class GridNetwork:
         self.nz_routes = None
         self.path_cps, self.cp_trajs, self.cp_flows = None, None, None
         self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
-        self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=NLP)
+        self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
         logging.debug('Sensors sampled')
 
     def _construct_grid(self):
@@ -89,6 +89,7 @@ class GridNetwork:
     def _invert_graph_weights(self):
         # Invert graph weights
         H = graph.DiGraph()
+        H._data = {} # FIXME reset data, not entirely sure why this is necessary
 
         for (u, v) in self.G.edges():
             H.add_edge(u, v, cost = 1./self.G.edge[u][v]['weight'])
@@ -116,6 +117,10 @@ class GridNetwork:
                     # oh my gosh, I want more sensors
                     # sensors.append((k*n + j,(k+1)*n + j))
 
+    @staticmethod
+    def has_duplicate(path):
+        return len(set(path)) == len(path)
+
     def _pairwise_shortest_routes(self, H):
         # Find k shortest routes between all 2 nodes
         k_shortests = []
@@ -126,9 +131,13 @@ class GridNetwork:
                 continue
             # dijkstra would be routes.append(nx.shortest_path(G,source=v,target=w))
             k_shortest = algorithms.ksp_yen(H, u, v, max_k = self.r)
+            saved_routes = []
             for shortest in k_shortest:
+                if GridNetwork.has_duplicate(shortest['path']):
+                    k_shortest.remove(shortest)
                 shortest['o'], shortest['d'], shortest['flow'] = u, v, 0
-            k_shortests.extend(k_shortest)
+                saved_routes.append(shortest)
+            k_shortests.extend(saved_routes)
         return k_shortests
 
     def get_route_indices_by_origin(self):
@@ -193,14 +202,18 @@ class GridNetwork:
             heavy_edges = self._get_heavy_edges(thresh=thresh)
             heavy_points =[(self.G.node[e[0]]['pos'],self.G.node[e[1]]['pos']) \
                            for e in heavy_edges]
-            cp.gaussian_polyline(heavy_points,n=NL,tau=30)
+            if len(heavy_points) > 1:
+                cp.gaussian_polyline(heavy_points,n=NL,tau=30)
 
         self.cp = cp
         self._get_cp_trajs(n)
 
     def _sample_linkpath(self, N=10):
-        self.lp = random.sample(self.G.edges(),N)
-        self._get_lp_trajs()
+        if N is not None:
+            self.lp = random.sample(self.G.edges(),N)
+            self._get_lp_trajs()
+        else:
+            self.lp = None
 
     def _get_lp_trajs(self, r_ids=None):
         rs = self.routes
@@ -226,7 +239,8 @@ class GridNetwork:
         else:
             self._sample_flows_dense(sparsity=sparsity)
         self._update_cp_flows()
-        self._update_lp_flows()
+        if self.lp is not None:
+            self._update_lp_flows()
         self._update_nz_routes()
 
     def _sample_flows(self, nnz_oroutes=2):
@@ -259,7 +273,7 @@ class GridNetwork:
             #    num_nonzero_routes = max(1, int(sparsity * len(route_indices_from_origin)))
             # select routes with non-zero flow
             selected_route_indices = sorted(random.sample(route_indices_from_origin,
-                                                          nnz_oroutes))
+                            min(nnz_oroutes,len(route_indices_from_origin))))
             # probability prior (uniform dirichlet) on non-zero flow routes
             selected_route_weights = np.random.dirichlet([1] * nnz_oroutes,
                                                             1)[0]
@@ -299,8 +313,7 @@ class GridNetwork:
             self.G.edge[u][v]['flow'] = 0
 
         # sample OD pairs
-        selected_OD_pairs = random.sample(OD_pairs,
-                                          int(len(OD_pairs) * sparsity))
+        selected_OD_pairs = random.sample(OD_pairs,int(len(OD_pairs) * sparsity))
         for origin,dest in selected_OD_pairs:
             self.od_flows[origin][dest] = self.o_flow
             selected_route_indices = route_indices_by_OD[origin][dest]
@@ -373,7 +386,7 @@ class GridNetwork:
                     I.append(k)
                     J.append(rid)
                 k += 1
-        T = to_sp(spmatrix(1.0, I, J, (n, m)))
+        T = coo_matrix(([1.0] * len(I),(I,J)), shape=(n,m)).tocsr()
         d = to_np(d)
         return T, d
 
@@ -412,7 +425,7 @@ class GridNetwork:
             for id in path_ids:
                 I.append(i)
                 J.append(id)
-        X = to_sp(spmatrix(1.0, I, J, (n, m)))
+        X = coo_matrix(([1.0] * len(I),(I,J)), shape=(n,m)).tocsr()
         r = to_np(r)
         return X, r
 

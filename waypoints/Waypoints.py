@@ -6,6 +6,10 @@ import numpy.linalg as la
 
 from scipy.sparse import csr_matrix
 
+# Clean matrix  wrapper
+def matrix(x):
+    return np.atleast_2d(np.squeeze(np.array(x)))
+
 class Waypoints:
 
     def __init__(self, bbox=[0,0,1,1], n=100):
@@ -40,7 +44,7 @@ class Waypoints:
             n = self.n
         bbox = self.bbox
         samples = np.random.rand(n,2)
-        self.wp['uniform_random'] = self.shift_and_scale(samples)
+        self.wp['uniform_random'] = matrix(self.shift_and_scale(samples))
 
     # uniform (random) in a polygon
     def uniform_random_bbox(self,pop,bbox,n=None):
@@ -66,7 +70,7 @@ class Waypoints:
                     waypoints = np.vstack((waypoints,x))
                 else:
                     waypoints = x
-        self.wp['uniform_rand_bbox'] = np.array(waypoints)
+        self.wp['uniform_rand_bbox'] = matrix(waypoints)
 
     # gaussian sampling along polyline
     def gaussian_polyline(self,p,n=None,log=False,bounded=True,tau=300):
@@ -111,7 +115,7 @@ class Waypoints:
                             waypoints = np.vstack((waypoints,x))
                         else:
                             waypoints = x
-        self.wp['gaussian_polyline'] = np.array(waypoints)
+        self.wp['gaussian_polyline'] = matrix(waypoints)
 
     # gaussian sampling around points
     def gaussian_points(self,p,n=None,bounded=True,tau=300):
@@ -135,7 +139,7 @@ class Waypoints:
                     waypoints = np.vstack((waypoints,x))
                 else:
                     waypoints = x
-        self.wp['gaussian_points'] = np.array(waypoints)
+        self.wp['gaussian_points'] = matrix(waypoints)
 
     def draw(self):
         colors = 'rbmgcyk'
@@ -191,6 +195,7 @@ class Waypoints:
             d = np.linalg.norm([point[0]-x, point[1]-y], axis=0)
             d_min, i_min = np.min(d), np.argmin(d)
             if d_min < min_dist: min_dist, wp_id = d_min, (id,i_min)
+
         return wp_id
 
 
