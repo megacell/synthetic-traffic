@@ -261,7 +261,7 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
             logging.error('T is empty, quitting')
             return {'error' : 'T is empty'}
         T, A, U, x_true = T[:,nz], A[:,nz], U[:,nz], x_true[nz]
-        b, d = A.dot(x_true), T.dot(x_true)
+        b, d, f = A.dot(x_true), T.dot(x_true), U.dot(x_true)
         if V is not None and g is not None:
             V = V[:,nz]
             g = V.dot(x_true)
