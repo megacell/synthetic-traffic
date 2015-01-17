@@ -205,8 +205,11 @@ class GridNetwork:
             if len(heavy_points) > 1:
                 cp.gaussian_polyline(heavy_points,n=NL,tau=30)
 
-        self.cp = cp
-        self._get_cp_trajs(n)
+        if cp.wp != {}:
+            self.cp = cp
+            self._get_cp_trajs(n)
+        else:
+            self.cp = None
 
     def _sample_linkpath(self, N=10):
         if N is not None:
@@ -238,7 +241,8 @@ class GridNetwork:
             self._sample_flows(nnz_oroutes=nnz_oroutes)
         else:
             self._sample_flows_dense(sparsity=sparsity)
-        self._update_cp_flows()
+        if self.cp is not None:
+            self._update_cp_flows()
         if self.lp is not None:
             self._update_lp_flows()
         self._update_nz_routes()

@@ -12,7 +12,7 @@ def matrix(x):
 
 class Waypoints:
 
-    def __init__(self, bbox=[0,0,1,1], n=100):
+    def __init__(self, bbox=[0,0,1,1], n=0):
         self.bbox = bbox    # [x1,y1,x2,y2]
         self.n = n
         self.wp = {}
@@ -34,22 +34,28 @@ class Waypoints:
 
     # uniform (deterministic)
     def uniform(self,n):
-        if not n:
+        if n is None:
             n = self.n
+        elif n == 0:
+            return
         pass
 
     # uniform (random)
     def uniform_random(self,n=None):
-        if not n:
+        if n is None:
             n = self.n
+        elif n == 0:
+            return
         bbox = self.bbox
         samples = np.random.rand(n,2)
         self.wp['uniform_random'] = matrix(self.shift_and_scale(samples))
 
     # uniform (random) in a polygon
     def uniform_random_bbox(self,pop,bbox,n=None):
-        if not n:
+        if n is None:
             n = self.n
+        elif n == 0:
+            return
         waypoints = np.array([])
         while waypoints.shape[0] < n:
             if waypoints.size == 0:
@@ -74,8 +80,10 @@ class Waypoints:
 
     # gaussian sampling along polyline
     def gaussian_polyline(self,p,n=None,log=False,bounded=True,tau=300):
-        if not n:
+        if n is None:
             n = self.n
+        elif n == 0:
+            return
         if log:
             dists = np.log([np.square(la.norm(np.array(points)[:-1,:] - \
                     np.array(points)[1:,:])) for points in p])
@@ -119,8 +127,10 @@ class Waypoints:
 
     # gaussian sampling around points
     def gaussian_points(self,p,n=None,bounded=True,tau=300):
-        if not n:
+        if n is None:
             n = self.n
+        elif n == 0:
+            return
         # select point for each of n samples
         waypoints = np.array([])
         while waypoints.shape[0] < n:

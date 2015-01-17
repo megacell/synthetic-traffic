@@ -108,7 +108,7 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
     b = A.dot(x)
 
     T, d = grid.simplex_od()
-    U, f = grid.simplex_cp()
+    U, f = grid.simplex_cp() if grid.cp is not None else (None, None)
     V, g = grid.simplex_lp() if grid.lp is not None else (None, None)
 
     return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
@@ -170,7 +170,7 @@ def generate_static_matrix_OD(grid):
     b = A.dot(x)
 
     T, d = grid.simplex_od()
-    U, f = grid.simplex_cp()
+    U, f = grid.simplex_cp() if grid.cp is not None else (None, None)
     V, g = grid.simplex_lp() if grid.lp is not None else (None, None)
 
     return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
@@ -260,8 +260,11 @@ def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
         if T.size == 0:
             logging.error('T is empty, quitting')
             return {'error' : 'T is empty'}
-        T, A, U, x_true = T[:,nz], A[:,nz], U[:,nz], x_true[nz]
-        b, d, f = A.dot(x_true), T.dot(x_true), U.dot(x_true)
+        T, A, x_true = T[:,nz], A[:,nz], x_true[nz]
+        b, d = A.dot(x_true), T.dot(x_true)
+        if U is not None and f is not None:
+            U = U[:,nz]
+            f = U.dot(x_true)
         if V is not None and g is not None:
             V = V[:,nz]
             g = V.dot(x_true)
