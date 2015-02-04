@@ -1,25 +1,29 @@
 from __future__ import division
+__author__ = 'cathywu'
 
 import ipdb
 
-import networkx as nx
-import itertools
-
 import os, sys
+import itertools
+import logging
+import random
+import collections
+
+import networkx as nx
+import numpy as np
+from scipy.sparse import csr_matrix, coo_matrix
+import matplotlib.pyplot as plt
+
 lib_path = os.path.abspath('YenKSP')
 sys.path.append(lib_path)
 from YenKSP import graph
 from YenKSP import algorithms
-import collections
-import numpy as np
-import random
-from scipy.sparse import csr_matrix, coo_matrix
 
 from waypoints.Waypoints import Waypoints
-import matplotlib.pyplot as plt
-import logging
+from synth_utils import deprecated, simplex
+from TrafficNetwork import TrafficNetwork
 
-class GridNetwork:
+class GridNetwork(TrafficNetwork):
 
     def __init__(self, ncol=5, nrow=5, nodroutes=2, NB=60,
                  NS=20, NL=15, NLP=20):
@@ -45,6 +49,11 @@ class GridNetwork:
         self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
         self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
         logging.debug('Sensors sampled')
+
+        self.bbox = self.get_bounding_box()
+
+    def get_route_flow(self,i):
+        return self.routes[i]['flow']
 
     def _construct_grid(self):
         sensors = []
@@ -174,7 +183,13 @@ class GridNetwork:
                     heavy.append((o,d))
         return heavy
 
-    def _get_bounding_box(self, margin=0.05):
+    def get_heavy_points(self, thresh=5):
+        heavy_edges = self._get_heavy_edges(thresh=thresh)
+        heavy_points =[(self.G.node[e[0]]['pos'],self.G.node[e[1]]['pos']) \
+                       for e in heavy_edges]
+        return heavy_points
+
+    def get_bounding_box(self, margin=0.05):
         pos = nx.get_node_attributes(self.G,'pos')
         x, y = zip(*pos.values())
         x_min, x_max, y_min, y_max = min(x), max(x), min(y), max(y)
@@ -185,12 +200,14 @@ class GridNetwork:
 
     # SAMPLE VARIOUS FLOWS
     # --------------------------------------------------------------------------
+    @deprecated
     def sample_sensors(self, NB=None, NS=None, NL=None, NLP=None, thresh=5, n=10):
         self._sample_waypoints(NB=NB, NS=NS, NL=NL, thresh=thresh, n=n)
         self._sample_linkpath(N=NLP)
 
+    @deprecated
     def _sample_waypoints(self, NB=60, NS=0, NL=10, thresh=5, n=10):
-        bbox = self._get_bounding_box()
+        bbox = self.get_bounding_box()
         cp = Waypoints(bbox=bbox)
 
         # uniformly sample points in bbox
@@ -211,6 +228,7 @@ class GridNetwork:
         else:
             self.cp = None
 
+    @deprecated
     def _sample_linkpath(self, N=10):
         if N is not None:
             self.lp = random.sample(self.G.edges(),N)
@@ -218,6 +236,7 @@ class GridNetwork:
         else:
             self.lp = None
 
+    @deprecated
     def _get_lp_trajs(self, r_ids=None):
         rs = self.routes
         if not r_ids:
@@ -329,10 +348,12 @@ class GridNetwork:
 
     # FLOW UPDATE
     # --------------------------------------------------------------------------
+    @deprecated
     def _update_lp_flows(self):
         self.lp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
                          paths in self.lp_trajs.values()]
 
+    @deprecated
     def _update_cp_flows(self):
         self.cp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
                          paths in self.cp_trajs.values()]
@@ -397,14 +418,16 @@ class GridNetwork:
     def simplex_cp(self):
         """Build simplex constraints from cellpath trajectories and flows
         """
-        return GridNetwork.simplex(len(self.routes),self.cp_trajs,self.cp_flows)
+        return simplex(len(self.routes),self.cp_trajs,self.cp_flows)
 
+    @deprecated
     def simplex_lp(self):
         """Build simplex constraints from linkpath trajectories and flows
         """
-        return GridNetwork.simplex(len(self.routes),self.lp_trajs,self.lp_flows)
+        return simplex(len(self.routes),self.lp_trajs,self.lp_flows)
 
     @staticmethod
+    @deprecated
     def simplex(nroutes, traj, flows):
         """
         Build simplex matrix from nroutes (n), trajectories (m), and trajectory

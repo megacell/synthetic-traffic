@@ -1,29 +1,32 @@
 import ipdb
 import random
-import numpy as np
-from scipy.sparse import csr_matrix
 
-# Helper functions
-# -------------------------------------
-def to_np(X):
-    return np.array(X).squeeze()
+from synth_utils import to_np, to_sp, simplex as simplex_base
 
-def to_sp(X):
-    return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
+__author__ = 'cathywu'
 
 class LinkPath:
-    def __init__(self, G, x_true, N=10):
-        self.G = G
-        self.x_true = x_true
+    def __init__(self, graph, N=10):
+        self.N = N
+        self.sample_linkpath(graph)
 
-        self.sample_linkpath(N=N)
+    def sample_linkpath(self, graph):
+        if graph.__class__.__name__ == 'Graph':
+            self.lp = random.sample(graph.G.links.keys(),self.N)
+        elif graph.__class__.__name__ == 'GridNetwork':
+            self.lp = random.sample(graph.G.edges(),self.N)
 
-    def sample_linkpath(self, N=10):
-        self.lp = random.sample(self.G.links.keys(),N)
-        self._get_lp_trajs()
+    def update_lp_trajs(self,graph):
+        if graph.__class__.__name__ == 'Graph':
+            self._get_lp_trajs_UE(graph)
+            self._update_lp_flows_UE(graph)
+        elif graph.__class__.__name__ == 'GridNetwork':
+            self._get_lp_trajs_grid(graph)
+            self._update_lp_flows_grid(graph)
 
-    def _get_lp_trajs(self):
-        rs = self.G.paths
+    # FIXME unify _get_lp_trajs_*
+    def _get_lp_trajs_UE(self, graph):
+        rs = graph.G.paths
         path_lps = [(r,[e.repr() for e in rs[r].links if e.repr() in self.lp]) \
                     for r in rs.keys()]
         lps = {}
@@ -32,17 +35,40 @@ class LinkPath:
         if () in lps:
             del lps[()]
         self.path_lps, self.lp_trajs = path_lps, lps
+    def _get_lp_trajs_grid(self, graph, r_ids=None):
+        rs = graph.routes
+        if not r_ids:
+            r_ids = xrange(len(rs))
+        path_lps = [[e for e in zip(rs[r]['path'],rs[r]['path'][1:]) \
+                     if e in self.lp] for r in r_ids]
+        lps = {}
+        for value,key in enumerate(path_lps):
+            lps.setdefault(tuple(key), []).append(value)
+        if () in lps:
+            del lps[()]
+        self.path_lps, self.lp_trajs = path_lps, lps
 
-    def update_lp_flows(self):
-        self.lp_flows = [sum([self.G.paths[i].flow for i in paths]) for \
+    # FIXME unify
+    def _update_lp_flows_UE(self, graph):
+        # FIXME
+        self.lp_flows = [sum([graph.G.paths[i].flow for i in paths]) for \
+                         paths in self.lp_trajs.values()]
+    def _update_lp_flows_grid(self, graph):
+        self.lp_flows = [sum([graph.get_route_flow(i) for i in paths]) for \
                          paths in self.lp_trajs.values()]
 
-    def simplex_lp(self):
+    # FIXME unify
+    def simplex(self,graph):
+        if graph.__class__.__name__ == 'Graph':
+            return self._simplex_UE(graph)
+        elif graph.__class__.__name__ == 'GridNetwork':
+            return self._simplex_grid(graph)
+    def _simplex_UE(self,graph):
         """Build simplex constraints from lp flows
         """
         from cvxopt import matrix, spmatrix
         n = len(self.lp_trajs)
-        m = len(self.G.paths)
+        m = len(graph.G.paths)
         if n == 0:
             return None, None
         I, J, r = [], [], matrix(0.0, (n,1))
@@ -50,8 +76,10 @@ class LinkPath:
             r[i] = self.lp_flows[i]
             for id in path_ids:
                 I.append(i)
-                J.append(self.G.indpaths[id])
+                J.append(graph.G.indpaths[id])
         V = to_sp(spmatrix(1.0, I, J, (n, m)))
         r = to_np(r)
         return V, r
+    def _simplex_grid(self,graph):
+        return simplex_base(len(graph.routes),self.lp_trajs,self.lp_flows)
 
