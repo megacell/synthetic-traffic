@@ -16,16 +16,16 @@ class LinkPath:
         elif graph.__class__.__name__ == 'GridNetwork':
             self.lp = random.sample(graph.G.edges(),self.N)
 
-    def update_lp_trajs(self,graph):
+    def update_trajs(self,graph):
         if graph.__class__.__name__ == 'Graph':
-            self._get_lp_trajs_UE(graph)
-            self._update_lp_flows_UE(graph)
+            self._get_trajs_UE(graph)
+            self._update_flows_UE(graph)
         elif graph.__class__.__name__ == 'GridNetwork':
-            self._get_lp_trajs_grid(graph)
-            self._update_lp_flows_grid(graph)
+            self._get_trajs_grid(graph)
+            self._update_flows_grid(graph)
 
-    # FIXME unify _get_lp_trajs_*
-    def _get_lp_trajs_UE(self, graph):
+    # FIXME unify _get_trajs_*
+    def _get_trajs_UE(self, graph):
         rs = graph.G.paths
         path_lps = [(r,[e.repr() for e in rs[r].links if e.repr() in self.lp]) \
                     for r in rs.keys()]
@@ -34,8 +34,8 @@ class LinkPath:
             lps.setdefault(tuple(key), []).append(value)
         if () in lps:
             del lps[()]
-        self.path_lps, self.lp_trajs = path_lps, lps
-    def _get_lp_trajs_grid(self, graph, r_ids=None):
+        self.path_lps, self.trajs = path_lps, lps
+    def _get_trajs_grid(self, graph, r_ids=None):
         rs = graph.routes
         if not r_ids:
             r_ids = xrange(len(rs))
@@ -46,16 +46,16 @@ class LinkPath:
             lps.setdefault(tuple(key), []).append(value)
         if () in lps:
             del lps[()]
-        self.path_lps, self.lp_trajs = path_lps, lps
+        self.path_lps, self.trajs = path_lps, lps
 
     # FIXME unify
-    def _update_lp_flows_UE(self, graph):
+    def _update_flows_UE(self, graph):
         # FIXME
-        self.lp_flows = [sum([graph.G.paths[i].flow for i in paths]) for \
-                         paths in self.lp_trajs.values()]
-    def _update_lp_flows_grid(self, graph):
-        self.lp_flows = [sum([graph.get_route_flow(i) for i in paths]) for \
-                         paths in self.lp_trajs.values()]
+        self.flows = [sum([graph.G.paths[i].flow for i in paths]) for \
+                         paths in self.trajs.values()]
+    def _update_flows_grid(self, graph):
+        self.flows = [sum([graph.get_route_flow(i) for i in paths]) for \
+                         paths in self.trajs.values()]
 
     # FIXME unify
     def simplex(self,graph):
@@ -67,13 +67,13 @@ class LinkPath:
         """Build simplex constraints from lp flows
         """
         from cvxopt import matrix, spmatrix
-        n = len(self.lp_trajs)
+        n = len(self.trajs)
         m = len(graph.G.paths)
         if n == 0:
             return None, None
         I, J, r = [], [], matrix(0.0, (n,1))
-        for i, path_ids in enumerate(self.lp_trajs.itervalues()):
-            r[i] = self.lp_flows[i]
+        for i, path_ids in enumerate(self.trajs.itervalues()):
+            r[i] = self.flows[i]
             for id in path_ids:
                 I.append(i)
                 J.append(graph.G.indpaths[id])
@@ -81,5 +81,5 @@ class LinkPath:
         r = to_np(r)
         return V, r
     def _simplex_grid(self,graph):
-        return simplex_base(len(graph.routes),self.lp_trajs,self.lp_flows)
+        return simplex_base(len(graph.routes),self.trajs,self.flows)
 

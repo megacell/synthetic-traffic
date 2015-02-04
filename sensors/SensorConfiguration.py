@@ -52,12 +52,12 @@ class SensorConfiguration:
         self.cp = CellPath(graph=graph,NB=self.num_cellpath_NB,
                             NL=self.num_cellpath_NL,NS=self.num_cellpath_NS,
                             freq=self.cp_freq,thresh=self.cp_thresh)
-        self.cp.update_cp_trajs(graph)
+        self.cp.update_trajs(graph)
 
     def _sample_linkpath_sensors(self,graph):
         from sensors.LinkPath import LinkPath
         self.lp = LinkPath(graph, N=self.num_linkpath)
-        self.lp.update_lp_trajs(graph)
+        self.lp.update_trajs(graph)
 
     def export_matrices(self, graph):
         data = {}

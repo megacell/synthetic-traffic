@@ -48,13 +48,13 @@ class CellPath:
                 if len(weights) > 0:
                     self.uniform_random_bbox(weights,bboxes,n=self.NS)
 
-    def update_cp_trajs(self,graph):
+    def update_trajs(self,graph):
         if graph.__class__.__name__ == 'Graph':
-            self._get_cp_trajs_UE(graph,self.freq)
-            self._update_cp_flows_UE(graph)
+            self._get_trajs_UE(graph,self.freq)
+            self._update_flows_UE(graph)
         elif graph.__class__.__name__ == 'GridNetwork':
-            self._get_cp_trajs_grid(graph,self.freq)
-            self._update_cp_flows_grid(graph)
+            self._get_trajs_grid(graph,self.freq)
+            self._update_flows_grid(graph)
 
     # transform points from [0,1]^2 to bbox
     def shift_and_scale(self,D,bbox=None):
@@ -243,9 +243,9 @@ class CellPath:
             x, y = self.cp[id][:,0], self.cp[id][:,1]
             d = np.linalg.norm([point[0]-x, point[1]-y], axis=0)
             d_min, i_min = np.min(d), np.argmin(d)
-            if d_min < min_dist: min_dist, cp_id = d_min, (id,i_min)
+            if d_min < min_dist: min_dist, id = d_min, (id,i_min)
 
-        return cp_id
+        return id
 
 
     def closest_to_line(self, directed_line, n, fast=False):
@@ -297,8 +297,8 @@ class CellPath:
             polyline.append((x1,y1,x2,y2))
         return self.closest_to_polyline(polyline, n, fast)
 
-    def _get_cp_trajs_grid(self, graph, n, r_ids=None, fast=False, tol=1e-3):
-        """Compute cellpath trajectories and returns {path_id: cp_ids}, [(cp_traj, path_list, flow)]
+    def _get_trajs_grid(self, graph, n, r_ids=None, fast=False, tol=1e-3):
+        """Compute cellpath trajectories and returns {path_id: ids}, [(traj, path_list, flow)]
 
         Parameters:
         ----------
@@ -309,8 +309,8 @@ class CellPath:
 
         Return value:
         ------------
-        path_cps: dictionary of paths with >tol flow with cp trajectory associated {path_id: cp_ids}
-        cp_trajs: list of cells trajectories with paths along this trajectory [(cp_traj, path_list, flow)]
+        path_cps: dictionary of paths with >tol flow with cp trajectory associated {path_id: ids}
+        trajs: list of cells trajectories with paths along this trajectory [(traj, path_list, flow)]
         """
         if not r_ids:
             r_ids = xrange(len(graph.routes))
@@ -319,14 +319,14 @@ class CellPath:
         cps = {}
         for value,key in enumerate(path_cps):
             cps.setdefault(tuple(key), []).append(value)
-        self.path_cps, self.cp_trajs = path_cps, cps
+        self.path_cps, self.trajs = path_cps, cps
 
-    def _update_cp_flows_grid(self, graph):
-        self.cp_flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
-                         paths in self.cp_trajs.values()]
+    def _update_flows_grid(self, graph):
+        self.flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
+                         paths in self.trajs.values()]
 
-    def _get_cp_trajs_UE(self, graph, n, r_ids=None, fast=False, tol=1e-3):
-        """Compute CellPath trajectories and returns {path_id: cp_ids}, [(cp_traj, path_list, flow)]
+    def _get_trajs_UE(self, graph, n, r_ids=None, fast=False, tol=1e-3):
+        """Compute CellPath trajectories and returns {path_id: ids}, [(traj, path_list, flow)]
 
         Parameters:
         ----------
@@ -338,8 +338,8 @@ class CellPath:
         Return value:
         ------------
         path_cps: dictionary of all the paths with flow>tol and with a list of closest waypoints to it
-        or associated cp trajectory {path_id: cp_ids}
-        cp_trajs: list of waypoint trajectories with paths along this trajectory [(cp_traj, path_list, flow)]
+        or associated cp trajectory {path_id: ids}
+        trajs: list of waypoint trajectories with paths along this trajectory [(traj, path_list, flow)]
         """
         if self.N == 0:
             return None, None
@@ -361,12 +361,12 @@ class CellPath:
                 cps_list.append(cps)
                 paths_list.append([path_id])
                 flows_list.append(graph.paths[path_id].flow)
-        self.path_cps, self.cp_trajs = path_cps, zip(cps_list, paths_list, flows_list)
+        self.path_cps, self.trajs = path_cps, zip(cps_list, paths_list, flows_list)
 
-    def _update_cp_flows_UE(self, graph):
+    def _update_flows_UE(self, graph):
         # TODO I AM HERE
-        self.cp_flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
-                         paths in self.cp_trajs.values()]
+        self.flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
+                         paths in self.trajs.values()]
 
     def simplex(self,graph):
         if graph.__class__.__name__ == 'Graph':
@@ -378,9 +378,9 @@ class CellPath:
         """Build simplex constraints from lp flows
         """
         from cvxopt import matrix as mat, spmatrix
-        n = len(self.cp_trajs)
+        n = len(self.trajs)
         I, J, r, i = [], [], mat(0.0, (n,1)), 0
-        for wp_traj, path_ids, flow in self.cp_trajs:
+        for wp_traj, path_ids, flow in self.trajs:
             r[i] = flow
             for id in path_ids:
                 I.append(i)
@@ -391,7 +391,7 @@ class CellPath:
         return U, r
 
     def _simplex_grid(self,graph):
-        return simplex_base(len(graph.routes),self.cp_trajs,self.cp_flows)
+        return simplex_base(len(graph.routes),self.trajs,self.flows)
 
 if __name__ == "__main__":
     import unittest
