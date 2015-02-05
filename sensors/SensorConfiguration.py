@@ -2,6 +2,8 @@ __author__ = 'cathywu'
 import random
 import numpy as np
 
+from synth_utils import to_sp
+
 class SensorConfiguration:
 
     def __init__(self, num_link=0, num_OD=0, num_cellpath_NB=0,
@@ -34,6 +36,11 @@ class SensorConfiguration:
         random.seed(myseed)
         self.myseed = myseed
 
+    def update_sensor_count(self):
+        # TODO update also for num_link and OD; CP should be fine since there's
+        # no upper bound
+        self.num_linkpath = len(self.lp.lp)
+
     def sample_sensors(self, TN):
         if self.num_link >= 0:
             self._sample_link_sensors(TN)
@@ -45,11 +52,11 @@ class SensorConfiguration:
             self._sample_linkpath_sensors(TN)
 
     def _sample_link_sensors(self,TN):
-        # TODO
+        # TODO, for now assumes all or none
         pass
 
     def _sample_OD_sensors(self,TN):
-        # TODO
+        # TODO, for now assumes all or none
         pass
 
     def _sample_cellpath_sensors(self,TN):
@@ -67,8 +74,16 @@ class SensorConfiguration:
     def export_matrices(self, TN):
         data = {}
         if self.num_link >= 0:
-            pass
+            # FIXME common interface
+            if TN.__class__.__name__ == 'EquilibriumNetwork':
+                import grid_networks_UE.path_solver as path_solver
+                A_full = to_sp(path_solver.linkpath_incidence(TN.G))
+                data['A'], data['b'] = A_full, A_full.dot(TN.p_flow)
+            else:
+                from grid_networks.static_matrix import generate_static_matrix_OD
+                data['A'], data['b'] = generate_static_matrix_OD(TN, only_Ab=True)
         if self.num_OD >= 0:
+            # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
                 import grid_networks_UE.path_solver as path_solver
                 data['T'], data['d'] = path_solver.simplex(TN.G)
@@ -79,6 +94,9 @@ class SensorConfiguration:
         if self.num_linkpath >= 0:
             data['V'], data['g'] = self.lp.simplex(TN)
         return data
+
+    def simplify_matrices(self,data):
+        pass
 
 if __name__ == "__main__":
     import unittest

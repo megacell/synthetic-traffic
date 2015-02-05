@@ -113,7 +113,7 @@ def generate_static_matrix(grid, flow_from_each_node=1.0):
 
     return A, x, w, b, T, d, U, f, V, g, np.array(num_routes)
 
-def generate_static_matrix_OD(grid):
+def generate_static_matrix_OD(grid, only_Ab=False):
     # All route indices are with respect to _routes_.
     route_indices_by_OD = grid.get_route_indices_by_OD()
 
@@ -164,10 +164,14 @@ def generate_static_matrix_OD(grid):
             ws.append(w)
             xs.append(x)
 
+
     A,x,w = np.hstack(As), np.concatenate(xs), np.concatenate(ws)
     # FIXME need to regenerate b because some routes went over the same link
     # twice, which we aren't counting
     b = A.dot(x)
+
+    if only_Ab is True:
+        return A,b
 
     T, d = grid.simplex_od()
     U, f = grid.simplex_cp() if grid.cp is not None else (None, None)
