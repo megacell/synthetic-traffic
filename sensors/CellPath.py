@@ -324,7 +324,7 @@ class CellPath:
         return ids_deduped
 
 
-    def closest_to_path(self, TN, path, n, fast=False):
+    def closest_to_path(self, graph, path, n, fast=False):
         """Find list of closest cells to a path in the TN
 
         Parameters:
@@ -334,11 +334,20 @@ class CellPath:
         n: number of points to take on each link of the path
         """
         polyline = []
-        pos = [TN.node[x]['pos'] for x in path]
-        for (i,x) in enumerate(pos[:-1]):
-            x1, y1 = x
-            x2, y2 = pos[i+1]
-            polyline.append((x1,y1,x2,y2))
+        if graph.__class__.__name__ == 'Graph':
+            path_id = path
+            for link in graph.paths[path_id].links:
+                x1, y1 = graph.nodes_position[link.startnode]
+                x2, y2 = graph.nodes_position[link.endnode]
+                polyline.append((x1,y1,x2,y2))
+        elif graph.__class__.__name__ == 'DiGraph':
+            pos = [graph.node[x]['pos'] for x in path]
+            for (i,x) in enumerate(pos[:-1]):
+                x1, y1 = x
+                x2, y2 = pos[i+1]
+                polyline.append((x1,y1,x2,y2))
+        else:
+            return NotImplemented
         return self.closest_to_polyline(polyline, n, fast)
 
     def _get_trajs_grid(self, TN, n, r_ids=None, fast=False, tol=1e-3):
@@ -392,7 +401,7 @@ class CellPath:
             # if path.flow > tol:
             k += 1
             if k%10 == 0: logging.info('Number of paths processed: %s' % k)
-            ids = self.closest_to_path(TN, path_id, n, fast)
+            ids = self.closest_to_path(TN.G, path_id, n, fast)
 
             path_cps[path_id] = ids
         cps_list, paths_list, flows_list = [], [], []
@@ -400,11 +409,11 @@ class CellPath:
             try:
                 index = cps_list.index(cps) # find the index of cps in cps_list
                 paths_list[index].append(path_id)
-                flows_list[index] += TN.paths[path_id].flow
+                flows_list[index] += TN.G.paths[path_id].flow
             except ValueError: # cps not in cps_list
                 cps_list.append(cps)
                 paths_list.append([path_id])
-                flows_list.append(TN.paths[path_id].flow)
+                flows_list.append(TN.G.paths[path_id].flow)
         self.path_cps, self.trajs = path_cps, zip(cps_list, paths_list, flows_list)
 
     def _update_flows_eq(self, TN):

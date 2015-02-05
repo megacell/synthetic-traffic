@@ -1,5 +1,6 @@
 from __future__ import division
 
+import ipdb
 import scipy.io
 import numpy.random as random
 import numpy as np
@@ -12,7 +13,8 @@ import grid_networks_UE.path_solver as path_solver
 __author__ = 'jeromethai, cathywu'
 
 class EquilibriumNetwork(TrafficNetwork):
-    def __init__(self, type='LA-small', SO=False, demand=3, delay_type=None, noise=0,
+    def __init__(self, type='LA-small', SO=False, demand=3,
+                 delay_type='Polynomial', noise=0,
                  path='networks/los_angeles_data_2.mat'):
         self.path = path
         self.noise = noise
@@ -23,10 +25,11 @@ class EquilibriumNetwork(TrafficNetwork):
             self.G = self.los_angeles(demand=demand,parameters=parameters)
             # TODO THIS IS WHERE I AM
             paths = find_UESOpaths(SO, path=path) # find the used paths in
+
             for p in paths:
                 self.G.add_path_from_nodes(p)
-            g.visualize(general=True)
-            self.p_flow = path_solver.solver(g, update=True, SO=SO, random=random)
+            self.G.visualize(general=True)
+            self.p_flow = path_solver.solver(self.G, update=True, SO=SO, random=random)
             # FIXME in this section, there is another dependence on los_angeles
             # in generate_graph, called through some sequence of functions
         elif type == 'LA-medium':
@@ -36,7 +39,7 @@ class EquilibriumNetwork(TrafficNetwork):
             return NotImplemented
         pass
 
-    def los_angeles(self,demand=3,parameters=None, delaytype=None):
+    def los_angeles(self, demand=3, parameters=None):
         """Generate small map of L.A. with 122 links and 44 modes
         """
 
