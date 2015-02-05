@@ -5,11 +5,13 @@ from matplotlib import pyplot as plt
 import numpy.linalg as la
 
 from scipy.sparse import csr_matrix
+from synth_utils import deprecated
 
 # Clean matrix  wrapper
 def matrix(x):
     return np.atleast_2d(np.squeeze(np.array(x)))
 
+@deprecated
 class Waypoints:
 
     def __init__(self, bbox=[0,0,1,1], n=0, graph=None, NB=None, NL=None,
