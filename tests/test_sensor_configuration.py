@@ -8,11 +8,11 @@ class TestSensorConfiguration(unittest.TestCase):
     # TODO WARNING does not test cellpath NB sensors
 
     def setUp(self):
-        from GridNetwork import GridNetwork
+        from networks.GridNetwork import GridNetwork
         self.TN1 = GridNetwork()
         self.TN1.sample_OD_flow()
 
-        from EquilibriumNetwork import EquilibriumNetwork
+        from networks.EquilibriumNetwork import EquilibriumNetwork
         self.TN2 = EquilibriumNetwork()
 
     def test_inf(self):

@@ -5,7 +5,7 @@ __author__ = 'cathywu'
 class TestEquilibriumNetwork(unittest.TestCase):
     def test_compile(self):
         import numpy as np
-        from EquilibriumNetwork import EquilibriumNetwork
+        from networks.EquilibriumNetwork import EquilibriumNetwork
         from sensors.SensorConfiguration import SensorConfiguration
         TN = EquilibriumNetwork()
         num_link = np.inf

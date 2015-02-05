@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from GridNetwork import GridNetwork
+from networks.GridNetwork import GridNetwork
 from sensors.SensorConfiguration import SensorConfiguration
 
 __author__ = 'cathywu'

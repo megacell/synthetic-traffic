@@ -4,7 +4,7 @@ __author__ = 'cathywu'
 
 class TestLosAngelesOSMNetwork(unittest.TestCase):
     def test_compile(self):
-        from LosAngelesOSMNetwork import LosAngelesOSMNetwork
+        from networks.LosAngelesOSMNetwork import LosAngelesOSMNetwork
         from sensors.CellPath import CellPath
         rs = [0.25, 0.5]
 
