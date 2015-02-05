@@ -3,8 +3,8 @@ Created on Apr 18, 2014
 
 @author: jeromethai
 '''
-from __future__ import division
 
+from __future__ import division
 from cvxopt import matrix
 import numpy as np
 import logging
@@ -385,10 +385,14 @@ class HyperDelay:
 
 def create_delayfunc(type, parameters=None):
     """Create a Delay function of a specific type"""
-    if type is None: return None
-    if type == 'Polynomial': return PolyDelay(parameters[0], parameters[1], parameters[2])
-    if type == 'Hyperbolic': return HyperDelay(parameters[0], parameters[1], parameters[2], parameters[3])
-    if type == 'Other': return Other(parameters[0], parameters[1], parameters[2])
+    if type is None:
+        return None
+    if type == 'Polynomial':
+        return PolyDelay(parameters[0], parameters[1], parameters[2])
+    if type == 'Hyperbolic':
+        return HyperDelay(parameters[0], parameters[1], parameters[2], parameters[3])
+    if type == 'Other':
+        return Other(parameters[0], parameters[1], parameters[2])
 
 
 def create_graph_from_list(list_nodes, list_links, delaytype, list_ods=None, description=None):

@@ -1,24 +1,34 @@
 '''
-Created on Apr 22, 2014
+Created on Jul 23, 2014
 
 @author: jeromethai
 '''
 
-import numpy as np
-import scipy.sparse as sps
-import scipy.io as sio
-from cvxopt import matrix, spmatrix, sparse, solvers
-from rank_nullspace import nullspace
-from util import place_zeros
+import ue_solver as ue
+from cvxopt import matrix, spmatrix, spdiag, solvers, div
+import numpy.random as ra
+import logging
+if logging.getLogger().getEffectiveLevel() >= logging.DEBUG:
+    solvers.options['show_progress'] = False
+else:
+    solvers.options['show_progress'] = True
 
 
-def incidence(graph):
-    """Returns matrix of incidence links-paths
+def linkpath_incidence(graph):
+    """Returns matrix of incidence link-path
     """
-    I, J = [], []
-    for id,path in graph.paths.items():
-        for link in path.links: I.append(graph.indlinks[(link.startnode, link.endnode, link.route)]); J.append(graph.indpaths[id])
-    return spmatrix(1.0, I, J)
+    I, J, entries = [], [], []
+    for id1,link in graph.links.items():
+        if len(link.paths) > 0:
+            for id2 in link.paths.keys():
+                I.append(graph.indlinks[id1])
+                J.append(graph.indpaths[id2])
+                entries.append(1.0)
+        else:
+            I.append(graph.indlinks[id1])
+            J.append(0)
+            entries.append(0.0)
+    return spmatrix(entries, I, J)
 
 
 def simplex(graph):
@@ -32,82 +42,99 @@ def simplex(graph):
     I, J, r = [], [], matrix(0.0, (graph.numODs,1))
     for id1,od in graph.ODs.items():
         r[graph.indods[id1]] = od.flow
-        for id2,path in od.paths.items(): I.append(graph.indods[id1]); J.append(graph.indpaths[id2])
+        for id2,path in od.paths.items():
+            I.append(graph.indods[id1])
+            J.append(graph.indpaths[id2])
     return spmatrix(1.0, I, J), r
 
 
-def solver(graph, linkflows=None, update=True, model='lls', A=None, U=None, r=None, unusedpaths=None, tol=1e-2):
-    """Find a feasible path flow
+def solver_init(U,r, random=False):
+    """Initialize with a feasible point
+    
+    Parameters:
+    ---------
+    U: matrix of simplex constraints
+    r: matrix of OD flows
+    random: if true
+    """
+    n,m = U.size
+    x0 = matrix(0.0, (m,1))
+    for i in range(n):
+        k = int(sum(U[i,:]))
+        if random:
+            tmp = ra.rand(k)
+            tmp = r[i]*(tmp/sum(tmp))
+        else: tmp = [r[i]/k]*k
+        k = 0
+        for j in range(m):
+            if U[i,j] > 0.0: x0[j] = tmp[k]; k += 1
+    return x0
+
+
+def solver(graph, update=False, data=None, SO=False, random=False):
+    """Solve for the UE equilibrium using link-path formulation
     
     Parameters
     ----------
     graph: graph object
-    linkflows: matrix of link flows
-    update: if update==True, update path flows in graph
-    model: if model=='lls', solve with linear-least-squares
-    unusedpaths: ids of unused paths if graph is in UE link flow"""
-    
-    if A is None: A = incidence(graph)
-    if U is None or r is None: U, r = simplex(graph)
-    if linkflows is None: print 'Get linkflows from Graph object.'; linkflows = graph.get_linkflows()
-        
-    n = graph.numpaths
-    C, d = spmatrix(-1.0, range(n), range(n)), matrix(0.0, (n,1))
-    
-    if model == 'lls': pathflows = solvers.qp(A.trans()*A, -A.trans()*linkflows, C, d, U, r)['x']
-        
-    if model == 'other': pass
-    
-    if unusedpaths is not None:
-        valid = True
-        for id in unusedpaths:
-            if pathflows[graph.indpaths[id]] > tol * graph.ODs[(id[0],id[1])].flow:
-                print 'WARNING: path flow ({},{},{}) doesn\'t satisfy UE!'.format(id[0],id[1],id[2]); valid = False; break
-            else:
-                pathflows[graph.indpaths[id]] = 0.0
-        if valid == True: print 'Path flow satisfies UE'
-        
-        if update: print 'Update path flows in Graph object.'; graph.update_pathflows(pathflows)
-        
-    return pathflows
-
-
-def vec_feas_paths(graph, A=None, U=None, unusedpaths=None, tol=1e-2):
-    """Find a basis of the space of feasible paths"""
-    if A is None: A = incidence(graph)
-    if U is None: U,_ = simplex(graph)
-    null = nullspace(matrix(sparse([A, U])))
-    ind = range(null.shape[1])
-    
-    if unusedpaths is not None:
-        print 'Trimming unfeasible directions'
-        for j in range(null.shape[1]):
-            for id in unusedpaths:
-                i = graph.indpaths[id]
-                if abs(null[i][j]) > tol: ind.remove(j); break
-                null[i][j] = 0.0
-    
-    return place_zeros(null[:,ind])
- 
-
-def save_mat(filepath, graph, linkflows):
-    """Save sparse matrices for the Path problem in solve_path_data.mat file
-    A: incidence matrix link-path
-    b: flow on each link
-    U: incidence matrix link-OD
-    r: OD flows
+    update: if True, update link and path flows in graph
+    data: (P,U,r) 
+            P: link-path incidence matrix
+            U,r: simplex constraints 
+    SO: if True compute SO
+    random: if True, initialize with a random feasible point
     """
-    I, J = [], []
-    b = np.array([linkflows[i] for i in range(len(linkflows))])
-    for id,path in graph.paths.items():
-        for link in path.links: I.append(graph.indlinks[(link.startnode, link.endnode, link.route)]); J.append(graph.indpaths[id])
-    A = sps.coo_matrix(([1]*len(I),(I,J)))
-        
-    I, J, r = [], [], np.zeros((graph.numODs,1))
-    for id1,od in graph.ODs.items():
-        r[graph.indods[id1]] = od.flow
-        for id2,path in od.paths.items(): I.append(graph.indods[id1]); J.append(graph.indpaths[id2])
-    U = sps.coo_matrix(([1]*len(I),(I,J)))
-        
-    sio.savemat(filepath+'solve_path_data.mat', mdict={'A': A, 'b': b, 'U': U, 'r': r})
+    type = graph.links.values()[0].delayfunc.type
+    if data is None:
+        P = linkpath_incidence(graph)
+        U,r = simplex(graph)
+    else: P,U,r = data
+    m = graph.numpaths
+    A, b = spmatrix(-1.0, range(m), range(m)), matrix(0.0, (m,1))
+    ffdelays = graph.get_ffdelays()
+    if type == 'Polynomial':
+        coefs = graph.get_coefs()
+        if not SO: coefs = coefs * spdiag([1.0/(j+2) for j in range(coefs.size[1])])
+        parameters = matrix([[ffdelays], [coefs]])
+        G = ue.objective_poly
+    if type == 'Hyperbolic':
+        ks = graph.get_ks()
+        parameters = matrix([[ffdelays-div(ks[:,0],ks[:,1])], [ks]])
+        G = ue.objective_hyper
+    def F(x=None, z=None):
+        if x is None: return 0, solver_init(U,r,random)
+        if z is None:
+            f, Df = G(P*x, z, parameters, 1)
+            return f, Df*P
+        f, Df, H = G(P*x, z, parameters, 1)
+        return f, Df*P, P.T*H*P    
+    x = solvers.cp(F, G=A, h=b, A=U, b=r)['x']
+    if update:
+        logging.info('Update link flows, delays in Graph.'); graph.update_linkflows_linkdelays(P*x)
+        logging.info('Update path delays in Graph.'); graph.update_pathdelays()
+        logging.info('Update path flows in Graph object.'); graph.update_pathflows(x)
+    return x
+
+
+def feasible_pathflows(graph, l_obs, obs=None, update=False, eq_constraints=None):
+    """Attempts to find feasible pathflows given partial of full linkflows
+    
+    Parameters:
+    ----------
+    graph: Graph object
+    l_obs: observations
+    obs: indices of the observed links
+    update: if True, update path flows in graph
+    """
+    P, n = linkpath_incidence(graph), graph.numpaths
+    if eq_constraints is None: U, r = simplex(graph)
+    else: U, r = eq_constraints
+    if obs is not None: P2 = P[obs,:]
+    C, d, q = spmatrix(-1.0, range(n), range(n)), matrix(0.0, (n,1)), -P2.trans()*l_obs
+    x = solvers.qp(P2.trans()*P2, q, C, d, U, r)['x']
+    if update:
+        logging.info('Update link flows, delays in Graph.'); graph.update_linkflows_linkdelays(P*x)
+        logging.info('Update path delays in Graph.'); graph.update_pathdelays()
+        logging.info('Update path flows in Graph object.'); graph.update_pathflows(x)
+    return x
     

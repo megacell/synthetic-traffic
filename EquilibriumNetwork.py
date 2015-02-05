@@ -27,6 +27,11 @@ class EquilibriumNetwork(TrafficNetwork):
                 self.G.add_path_from_nodes(p)
             g.visualize(general=True)
             self.p_flow = path_solver.solver(g, update=True, SO=SO, random=random)
+            # FIXME in this section, there is another dependence on los_angeles
+            # in generate_graph, called through some sequence of functions
+        elif type == 'LA-medium':
+            # TODO (Jerome?)
+            return NotImplemented
         else:
             return NotImplemented
         pass
@@ -80,7 +85,7 @@ class EquilibriumNetwork(TrafficNetwork):
     def los_angeles_2(parameters=None, delaytype='None'):
         """Generate larger map of L.A. with 664 links and 194 nodes
         """
-        # TODO
+        # TODO (Jerome?)
         pass
 
     def get_region_weights(self):
