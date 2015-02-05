@@ -18,7 +18,7 @@ from YenKSP import graph
 from YenKSP import algorithms
 
 from waypoints.Waypoints import Waypoints
-from synth_utils import deprecated, simplex
+from synth_utils import deprecated, simplex, to_sp, to_np
 from TrafficNetwork import TrafficNetwork
 
 __author__ = 'cathywu'
@@ -58,6 +58,9 @@ class GridNetwork(TrafficNetwork):
         np.random.seed(myseed)
         random.seed(myseed)
         self.myseed = myseed
+
+    def num_links(self):
+        return len(self.G.edges())
 
     def get_route_flow(self,i):
         return self.routes[i]['flow']
@@ -486,21 +489,12 @@ class GridNetwork(TrafficNetwork):
         nx.draw_networkx_edges(self.G, pos, edgelist=self.sensors, width=1,
                                alpha=0.5, edge_color='b')
 
-# Helper functions
-# -------------------------------------
-def to_np(X):
-    return np.array(X).squeeze()
-
-def to_sp(X):
-    return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
-
 if __name__ == '__main__':
+    import unittest
+    from tests.test_grid_network import TestGridNetwork
+    unittest.main()
 
-    G = GridNetwork()
+    # G = GridNetwork()
 
-    # print G.sensors
-    # print len(G.sensors)
-    # print G.routes
-
-    G.draw_graph()
+    # G.draw_graph()
 

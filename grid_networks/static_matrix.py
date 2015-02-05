@@ -8,24 +8,11 @@ import matplotlib
 import networkx as nx
 import numpy as np
 import scipy.io
-import scipy.sparse as sps
 import logging
 
 from GridNetwork import GridNetwork
 from waypoints import Waypoints
-
-# Clean array wrapper
-def array(x):
-    return np.atleast_1d(np.squeeze(np.array(x)))
-
-# Clean sparse matrix wrapper
-def sparse(A):
-    if type(A) == np.ndarray:
-        return sps.csr_matrix(A)
-    return A.tocsr()
-
-def sps2array(x):
-    return array(x.todense())
+from synth_utils import deprecated, array
 
 def assert_simplex_incidence(M,n):
     """
@@ -209,6 +196,7 @@ def generate_random_matrix(grid, flow_from_each_node=1.0):
 
     return A, x, np.concatenate(ws), b, np.array(num_routes)
 
+@deprecated
 def export_matrices(prefix, nrow, ncol, nodroutes=5, nnz_oroutes=2, NB=60,
                  NS=20, NL=15, NLP=20, export=True, type='all'):
 

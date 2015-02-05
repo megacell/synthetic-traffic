@@ -1,8 +1,10 @@
-__author__ = 'cathywu'
+import ipdb
 import random
 import numpy as np
 
 from synth_utils import to_sp
+
+__author__ = 'cathywu'
 
 class SensorConfiguration:
 
@@ -36,31 +38,27 @@ class SensorConfiguration:
         random.seed(myseed)
         self.myseed = myseed
 
-    def update_sensor_count(self):
-        # TODO update also for num_link and OD; CP should be fine since there's
-        # no upper bound
-        self.num_linkpath = len(self.lp.lp)
-
     def sample_sensors(self, TN):
-        if self.num_link >= 0:
+        if self.num_link > 0:
             self._sample_link_sensors(TN)
-        if self.num_OD >= 0:
+        if self.num_OD > 0:
             self._sample_OD_sensors(TN)
-        if self.num_cellpath_NB+self.num_cellpath_NL+self.num_cellpath_NS >= 0:
+        if self.num_cellpath_NB+self.num_cellpath_NL+self.num_cellpath_NS > 0:
             self._sample_cellpath_sensors(TN)
-        if self.num_linkpath >= 0:
+        if self.num_linkpath > 0:
             self._sample_linkpath_sensors(TN)
 
     def _sample_link_sensors(self,TN):
-        # TODO, for now assumes all or none
-        pass
+        # TODO, NOOP, for now assumes all
+        self.num_link = min(self.num_link,TN.num_links())
 
     def _sample_OD_sensors(self,TN):
-        # TODO, for now assumes all or none
+        # TODO, NOOP, for now assumes all
         pass
 
     def _sample_cellpath_sensors(self,TN):
         from sensors.CellPath import CellPath
+        self.num_cellpath_NL = min(self.num_cellpath_NL,TN.num_links())
         self.cp = CellPath(TN=TN,NB=self.num_cellpath_NB,
                             NL=self.num_cellpath_NL,NS=self.num_cellpath_NS,
                             freq=self.cp_freq,thresh=self.cp_thresh)
@@ -68,30 +66,37 @@ class SensorConfiguration:
 
     def _sample_linkpath_sensors(self,TN):
         from sensors.LinkPath import LinkPath
+        self.num_linkpath = min(self.num_linkpath,TN.num_links())
         self.lp = LinkPath(TN, N=self.num_linkpath)
         self.lp.update_trajs(TN)
 
     def export_matrices(self, TN):
         data = {}
-        if self.num_link >= 0:
+        # Export A,b
+        if self.num_link > 0:
             # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
                 import grid_networks_UE.path_solver as path_solver
                 A_full = to_sp(path_solver.linkpath_incidence(TN.G))
                 data['A'], data['b'] = A_full, A_full.dot(TN.p_flow)
-            else:
+            elif TN.__class__.__name__ == 'GridNetwork':
                 from grid_networks.static_matrix import generate_static_matrix_OD
                 data['A'], data['b'] = generate_static_matrix_OD(TN, only_Ab=True)
-        if self.num_OD >= 0:
+            else:
+                return NotImplemented
+        # Export T,d
+        if self.num_OD > 0:
             # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
                 import grid_networks_UE.path_solver as path_solver
                 data['T'], data['d'] = path_solver.simplex(TN.G)
             else:
                 data['T'], data['d'] = TN.simplex_od()
-        if self.num_cellpath_NB+self.num_cellpath_NL+self.num_cellpath_NS >= 0:
+        # Export U,f
+        if self.num_cellpath_NB+self.num_cellpath_NL+self.num_cellpath_NS > 0:
             data['U'], data['f'] = self.cp.simplex(TN)
-        if self.num_linkpath >= 0:
+        # Export V,g
+        if self.num_linkpath > 0:
             data['V'], data['g'] = self.lp.simplex(TN)
         return data
 

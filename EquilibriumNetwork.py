@@ -39,6 +39,9 @@ class EquilibriumNetwork(TrafficNetwork):
             return NotImplemented
         pass
 
+    def num_links(self):
+        return len(self.G.links)
+
     def los_angeles(self, demand=3, parameters=None):
         """Generate small map of L.A. with 122 links and 44 modes
         """

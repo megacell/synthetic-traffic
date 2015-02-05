@@ -2,6 +2,7 @@ import ipdb
 import warnings
 
 import numpy as np
+import scipy.sparse as sps
 from scipy.sparse import csr_matrix, coo_matrix
 
 __author__ = 'cathywu, jeromethai'
@@ -17,6 +18,19 @@ def to_sp(X):
 # Clean matrix  wrapper
 def matrix(x):
     return np.atleast_2d(np.squeeze(np.array(x)))
+
+# Clean array wrapper
+def array(x):
+    return np.atleast_1d(np.squeeze(np.array(x)))
+
+# Clean sparse matrix wrapper
+def sparse(A):
+    if type(A) == np.ndarray:
+        return sps.csr_matrix(A)
+    return A.tocsr()
+
+def sps2array(x):
+    return array(x.todense())
 
 def deprecated(func):
     '''This is a decorator which can be used to mark functions
@@ -59,35 +73,3 @@ def simplex(nroutes, traj, flows):
     r = to_np(r)
     return X, r
 
-def distance_on_unit_sphere(lat1, long1, lat2, long2):
-    import math
-
-    # Convert latitude and longitude to
-    # spherical coordinates in radians.
-    degrees_to_radians = math.pi/180.0
-
-    # phi = 90 - latitude
-    phi1 = (90.0 - lat1)*degrees_to_radians
-    phi2 = (90.0 - lat2)*degrees_to_radians
-
-    # theta = longitude
-    theta1 = long1*degrees_to_radians
-    theta2 = long2*degrees_to_radians
-
-    # Compute spherical distance from spherical coordinates.
-
-    # For two locations in spherical coordinates
-    # (1, theta, phi) and (1, theta, phi)
-    # cosine( arc length ) =
-    #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
-    # distance = rho * arc length
-
-    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
-           math.cos(phi1)*math.cos(phi2))
-    arc = math.acos( cos )
-
-    # Remember to multiply arc by the radius of the earth
-    # in your favorite set of units to get length.
-    #return 3960.*arc to get in miles
-    #return 6373.*arc to get in km
-    return arc

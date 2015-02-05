@@ -14,6 +14,10 @@ class TrafficNetwork:
         return x1<=p[0]<=x2 and y1<=p[1]<=y2
 
     @abstractmethod
+    def num_links(self):
+        return NotImplemented
+
+    @abstractmethod
     def get_links(self):
         return NotImplemented
 

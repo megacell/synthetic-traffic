@@ -3,7 +3,7 @@
 """
 CellPath object maintains various sampled types of cellular sensors,
 cellpath trajectory extraction from routes, and cellpath flow computation from
-TN
+TrafficNetwork object
 """
 
 import ipdb
@@ -19,7 +19,7 @@ __author__ = 'cathywu'
 
 class CellPath:
 
-    def __init__(self, bbox=[0,0,1,1], n=0, TN=None, NB=None, NL=None,
+    def __init__(self, bbox=(0,0,1,1), n=0, TN=None, NB=None, NL=None,
                  NS=None, freq=10, thresh=5, scale=None):
         self.bbox = bbox    # [x1,y1,x2,y2]
         self.n = n
