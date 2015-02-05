@@ -6,13 +6,14 @@ import numpy as np
 
 import grid_networks_UE.Graph as g
 from TrafficNetwork import TrafficNetwork
-from synth_utils import distance_on_unit_sphere
+from grid_networks_UE.generate_paths import find_UESOpaths
+import grid_networks_UE.path_solver as path_solver
 
 __author__ = 'jeromethai, cathywu'
 
 class EquilibriumNetwork(TrafficNetwork):
-    def __init__(self, type='LA-small', demand=3, delay_type=None, noise=0,
-                 path=None):
+    def __init__(self, type='LA-small', SO=False, demand=3, delay_type=None, noise=0,
+                 path='networks/los_angeles_data_2.mat'):
         self.path = path
         self.noise = noise
         self.delay_type = delay_type
@@ -20,11 +21,12 @@ class EquilibriumNetwork(TrafficNetwork):
             from cvxopt import matrix as mat
             parameters = mat([0.0, 0.0, 0.0, 0.15])
             self.G = self.los_angeles(demand=demand,parameters=parameters)
-            # paths = find_UESOpaths(SO, path=path) # find the used paths in
-            # for p in paths:
-            #     self.G.add_path_from_nodes(p)
-            # g.visualize(general=True)
-            # self.p_flow = path_solver.solver(g, update=True, SO=SO, random=random)
+            # TODO THIS IS WHERE I AM
+            paths = find_UESOpaths(SO, path=path) # find the used paths in
+            for p in paths:
+                self.G.add_path_from_nodes(p)
+            g.visualize(general=True)
+            self.p_flow = path_solver.solver(g, update=True, SO=SO, random=random)
         else:
             return NotImplemented
         pass
