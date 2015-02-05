@@ -3,7 +3,7 @@
 """
 CellPath object maintains various sampled types of cellular sensors,
 cellpath trajectory extraction from routes, and cellpath flow computation from
-graph
+TN
 """
 
 import ipdb
@@ -19,42 +19,86 @@ __author__ = 'cathywu'
 
 class CellPath:
 
-    def __init__(self, bbox=[0,0,1,1], n=0, graph=None, NB=None, NL=None,
-                 NS=None, freq=10, thresh=5):
+    def __init__(self, bbox=[0,0,1,1], n=0, TN=None, NB=None, NL=None,
+                 NS=None, freq=10, thresh=5, scale=None):
         self.bbox = bbox    # [x1,y1,x2,y2]
         self.n = n
         self.cp = {}
         self.NB, self.NL, self.NS = NB, NL, NS
-        self.freq, self.thresh = freq, thresh
-        if graph is not None:
-            self.sample_from_graph(graph)
+        self.freq, self.thresh = freq, thresh # GridNetwork only
+        self.scale = scale # EquilibriumNetwork only
+        if TN is not None:
+            self.sample_from_TN(TN)
 
-    def sample_from_graph(self, graph):
-        if graph.__class__.__name__ == 'Graph':
-            pass
-        elif graph.__class__.__name__ == 'GridNetwork' or \
-                        graph.__class__.__name__ == 'LosAngelesOSMNetwork':
-            self.bbox = graph.get_bounding_box() # x1, y1, x2, y2
-            # uniformly sample points in bbox
-            if self.NB is not None and self.NB > 0:
-                self.uniform_random(n=self.NB)
-            # sample points along heavy edges (main roads)
-            if self.NL is not None and self.NL > 0:
-                heavy_points = graph.get_heavy_points(thresh=self.thresh)
-                if len(heavy_points) > 1:
-                    self.gaussian_polyline(heavy_points,n=self.NL,tau=30)
-            if self.NS is not None and self.NS > 0:
-                weights, bboxes = graph.get_region_weights()
-                if len(weights) > 0:
-                    self.uniform_random_bbox(weights,bboxes,n=self.NS)
+    def sample_from_TN(self, TN):
+        if TN.__class__.__name__ == 'EquilibriumNetwork':
+            self._sample_from_TN_eq(TN)
+        elif TN.__class__.__name__ == 'GridNetwork' or \
+                        TN.__class__.__name__ == 'LosAngelesOSMNetwork':
+            self._sample_from_TN_grid(TN)
+        else:
+            return NotImplemented
 
-    def update_trajs(self,graph):
-        if graph.__class__.__name__ == 'Graph':
-            self._get_trajs_UE(graph,self.freq)
-            self._update_flows_UE(graph)
-        elif graph.__class__.__name__ == 'GridNetwork':
-            self._get_trajs_grid(graph,self.freq)
-            self._update_flows_grid(graph)
+    def _sample_from_TN_eq(self, TN, margin=0.05):
+        """Sample waypoints on TN
+
+        Parameters:
+        -----------
+        TN: Graph object
+        N0: number of background samples
+        N1: number of samples on links
+        regions: list of regions, regions[k] = (geometry, N_region)
+        margin: % size of margin around the TN
+        """
+        from grid_networks_UE.Waypoints import BoundingBox
+        xs = [p[0] for p in TN.G.nodes_position.values()]
+        ys = [p[1] for p in TN.G.nodes_position.values()]
+        min_x, max_x, min_y, max_y = min(xs), max(xs), min(ys), max(ys)
+        w, h = max_x-min_x, max_y-min_y
+        x1, x2, y1, y2 = min_x - w*margin, max_x + w*margin, min_y - h*margin, \
+                         max_y + h*margin
+        WP = BoundingBox((x1, y1, x2, y2))
+        WP.populate(self.NB)
+        total_length, lines = 0, []
+        for link in TN.G.links.values():
+            xs, ys = TN.G.nodes_position[link.startnode]
+            xt, yt = TN.G.nodes_position[link.endnode]
+            length = np.linalg.norm([xs-xt, ys-yt])
+            total_length += length
+            lines.append([(xs,ys,xt,yt), length])
+        weights = [line[1]/total_length for line in lines]
+        Ns = np.random.multinomial(self.NL, weights, size=1)[0]
+        for k,line in enumerate(lines): WP.add_line(line[0], Ns[k], self.scale)
+        weights, bboxes = TN.get_region_weights()
+        weights_total = sum(weights)
+        for w,b in zip(weights,bboxes):
+            WP.add_rectangle(b, self.NS*w/weights_total)
+
+        self.cp = {'AllTypes' : matrix(WP.wp.values())}
+    def _sample_from_TN_grid(self,TN):
+        self.bbox = TN.get_bounding_box() # x1, y1, x2, y2
+        # uniformly sample points in bbox
+        if self.NB is not None and self.NB > 0:
+            self.uniform_random(n=self.NB)
+        # sample points along heavy edges (main roads)
+        if self.NL is not None and self.NL > 0:
+            heavy_points = TN.get_heavy_points(thresh=self.thresh)
+            if len(heavy_points) > 1:
+                self.gaussian_polyline(heavy_points,n=self.NL,tau=30)
+        if self.NS is not None and self.NS > 0:
+            weights, bboxes = TN.get_region_weights()
+            if len(weights) > 0:
+                self.uniform_random_bbox(weights,bboxes,n=self.NS)
+
+    def update_trajs(self,TN):
+        if TN.__class__.__name__ == 'EquilibriumNetwork':
+            self._get_trajs_eq(TN,self.freq)
+            # self._update_flows_eq(TN)
+        elif TN.__class__.__name__ == 'GridNetwork':
+            self._get_trajs_grid(TN,self.freq)
+            self._update_flows_grid(TN)
+        else:
+            return NotImplemented
 
     # transform points from [0,1]^2 to bbox
     def shift_and_scale(self,D,bbox=None):
@@ -280,29 +324,29 @@ class CellPath:
         return ids_deduped
 
 
-    def closest_to_path(self, graph, path, n, fast=False):
-        """Find list of closest cells to a path in the graph
+    def closest_to_path(self, TN, path, n, fast=False):
+        """Find list of closest cells to a path in the TN
 
         Parameters:
         ----------
-        graph: Graph object
+        TN: Graph object
         path: sequence of nodes in path
         n: number of points to take on each link of the path
         """
         polyline = []
-        pos = [graph.node[x]['pos'] for x in path]
+        pos = [TN.node[x]['pos'] for x in path]
         for (i,x) in enumerate(pos[:-1]):
             x1, y1 = x
             x2, y2 = pos[i+1]
             polyline.append((x1,y1,x2,y2))
         return self.closest_to_polyline(polyline, n, fast)
 
-    def _get_trajs_grid(self, graph, n, r_ids=None, fast=False, tol=1e-3):
+    def _get_trajs_grid(self, TN, n, r_ids=None, fast=False, tol=1e-3):
         """Compute cellpath trajectories and returns {path_id: ids}, [(traj, path_list, flow)]
 
         Parameters:
         ----------
-        graph: Graph object with path flows in it
+        TN: Graph object with path flows in it
         n: number of points to take on each link of paths
         fast: if True do fast computation
         tol:
@@ -313,24 +357,24 @@ class CellPath:
         trajs: list of cells trajectories with paths along this trajectory [(traj, path_list, flow)]
         """
         if not r_ids:
-            r_ids = xrange(len(graph.routes))
-        path_cps = [self.closest_to_path(graph.G, graph.routes[r]['path'], n,
+            r_ids = xrange(len(TN.routes))
+        path_cps = [self.closest_to_path(TN.G, TN.routes[r]['path'], n,
                                          fast=fast) for r in r_ids]
         cps = {}
         for value,key in enumerate(path_cps):
             cps.setdefault(tuple(key), []).append(value)
         self.path_cps, self.trajs = path_cps, cps
 
-    def _update_flows_grid(self, graph):
-        self.flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
+    def _update_flows_grid(self, TN):
+        self.flows = [sum([TN.routes[i]['flow'] for i in paths]) for \
                          paths in self.trajs.values()]
 
-    def _get_trajs_UE(self, graph, n, r_ids=None, fast=False, tol=1e-3):
+    def _get_trajs_eq(self, TN, n, r_ids=None, fast=False, tol=1e-3):
         """Compute CellPath trajectories and returns {path_id: ids}, [(traj, path_list, flow)]
 
         Parameters:
         ----------
-        graph: Graph object with path flows in it
+        TN: Graph object with path flows in it
         n: number of points to take on each link of paths
         fast: if True do fast computation
         tol: consider only paths for which flow on it is more than tol
@@ -341,14 +385,14 @@ class CellPath:
         or associated cp trajectory {path_id: ids}
         trajs: list of waypoint trajectories with paths along this trajectory [(traj, path_list, flow)]
         """
-        if self.N == 0:
+        if self.cp == None or len(self.cp) == 0:
             return None, None
         path_cps, k = {}, 0
-        for path_id, path in graph.paths.items():
+        for path_id, path in TN.G.paths.items():
             # if path.flow > tol:
             k += 1
             if k%10 == 0: logging.info('Number of paths processed: %s' % k)
-            ids = self.closest_to_path(graph, path_id, n, fast)
+            ids = self.closest_to_path(TN, path_id, n, fast)
 
             path_cps[path_id] = ids
         cps_list, paths_list, flows_list = [], [], []
@@ -356,25 +400,26 @@ class CellPath:
             try:
                 index = cps_list.index(cps) # find the index of cps in cps_list
                 paths_list[index].append(path_id)
-                flows_list[index] += graph.paths[path_id].flow
+                flows_list[index] += TN.paths[path_id].flow
             except ValueError: # cps not in cps_list
                 cps_list.append(cps)
                 paths_list.append([path_id])
-                flows_list.append(graph.paths[path_id].flow)
+                flows_list.append(TN.paths[path_id].flow)
         self.path_cps, self.trajs = path_cps, zip(cps_list, paths_list, flows_list)
 
-    def _update_flows_UE(self, graph):
+    def _update_flows_eq(self, TN):
         # TODO I AM HERE
-        self.flows = [sum([graph.routes[i]['flow'] for i in paths]) for \
+        self.flows = [sum([TN.G.routes[i]['flow'] for i in paths]) for \
                          paths in self.trajs.values()]
 
-    def simplex(self,graph):
-        if graph.__class__.__name__ == 'Graph':
-            return self._simplex_UE(graph)
-        elif graph.__class__.__name__ == 'GridNetwork':
-            return self._simplex_grid(graph)
+    def simplex(self,TN):
+        if TN.__class__.__name__ == 'EquilibriumNetwork':
+            return self._simplex_eq(TN)
+        elif TN.__class__.__name__ == 'GridNetwork':
+            return self._simplex_grid(TN)
+        return NotImplemented
 
-    def _simplex_UE(self,graph):
+    def _simplex_eq(self,TN):
         """Build simplex constraints from lp flows
         """
         from cvxopt import matrix as mat, spmatrix
@@ -384,14 +429,14 @@ class CellPath:
             r[i] = flow
             for id in path_ids:
                 I.append(i)
-                J.append(graph.indpaths[id])
+                J.append(TN.G.indpaths[id])
             i += 1
-        U = to_sp(spmatrix(1.0, I, J, (n, graph.numpaths)))
+        U = to_sp(spmatrix(1.0, I, J, (n, TN.G.numpaths)))
         r = to_np(r)
         return U, r
 
-    def _simplex_grid(self,graph):
-        return simplex_base(len(graph.routes),self.trajs,self.flows)
+    def _simplex_grid(self,TN):
+        return simplex_base(len(TN.routes),self.trajs,self.flows)
 
 if __name__ == "__main__":
     import unittest

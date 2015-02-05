@@ -1,8 +1,6 @@
 from __future__ import division
-__author__ = 'cathywu'
 
 import ipdb
-
 import os, sys
 import itertools
 import logging
@@ -22,6 +20,8 @@ from YenKSP import algorithms
 from waypoints.Waypoints import Waypoints
 from synth_utils import deprecated, simplex
 from TrafficNetwork import TrafficNetwork
+
+__author__ = 'cathywu'
 
 class GridNetwork(TrafficNetwork):
 

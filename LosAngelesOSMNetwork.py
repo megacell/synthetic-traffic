@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     for r in rs:
         LA = LosAngelesOSMNetwork()
-        cp = CellPath(NB=150*r,NL=50*r,NS=800*r,graph=LA)
+        cp = CellPath(NB=150*r,NL=50*r,NS=800*r,TN=LA)
         # cp.save(c)
     # plot
     cp.show()

@@ -58,6 +58,3 @@ docs/_build/
 
 # IDE folder
 .idea
-
-# Data files
-*.mat

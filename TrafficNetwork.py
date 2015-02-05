@@ -1,17 +1,17 @@
 from abc import abstractmethod
 
 class TrafficNetwork:
-
+    """
+    Bundles road network and traffic network dynamics
+    """
     def __init__(self):
         self.graph = None
         self.bbox = None
 
     # checks if point is in bounding box
     def in_box(self,p):
-        if p[0] >= self.bbox[0] and p[0] <= self.bbox[2] and \
-                        p[1] >= self.bbox[1] and p[1] <= self.bbox[3]:
-            return True
-        return False
+        x1,y1,x2,y2 = self.bbox
+        return x1<=p[0]<=x2 and y1<=p[1]<=y2
 
     @abstractmethod
     def get_links(self):

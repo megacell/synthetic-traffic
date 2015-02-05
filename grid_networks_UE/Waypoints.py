@@ -5,12 +5,11 @@ Created on Aug 9, 2014
 '''
 
 import numpy as np
-from util import sample_line, sample_box, create_networkx_graph, in_box
-import networkx as nx    
+import numpy.linalg as la
+import networkx as nx
 import matplotlib.pyplot as plt
 from math import floor
 from cvxopt import matrix, spmatrix
-import rank_nullspace as rn
 from util import find_basis
 import path_solver as path
 import scipy.spatial as spa
@@ -115,6 +114,7 @@ class Waypoints:
             plt.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
             plt.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)
         if graph is not None:
+            from util import create_networkx_graph
             G, pos = create_networkx_graph(graph), graph.nodes_position
             nx.draw_networkx_edges(G, pos, arrows=False, width=1.5)
             if path_id is not None:
@@ -227,6 +227,7 @@ class Rectangle(Waypoints):
     def populate(self, N, first=0):
         """Uniformly sample N points in rectangle
         with first the first key used in wp"""
+        from util import sample_box
         self.N = N
         ps = sample_box(N, self.geometry)
         self.wp = {id: p for id,p in enumerate(ps,first)}
@@ -242,6 +243,7 @@ class Rectangle(Waypoints):
         res: (n1, n2) s.t. the width is divided into n1 cells and the height into n2 cells
         margin: margin around each cell
         """
+        from util import in_box
         X1, Y1, X2, Y2 = self.geometry
         w, h, partition = (X2-X1)/res[0], (Y2-Y1)/res[1], {}
         for i in range(res[0]):
@@ -293,6 +295,7 @@ class Line(Waypoints):
     def populate(self, N, first=0, scale=1e-8):
         """Sample N points along line
         with first the first key used in wp"""
+        from util import sample_line
         self.N = N
         ps = sample_line(N, self.geometry, scale)
         self.wp = {id: p for id,p in enumerate(ps,first)}
@@ -354,7 +357,7 @@ def simplex(graph, wp_trajs, withODs=False):
     else:
         U1, r1 = path.simplex(graph)
         U, r = matrix([U, U1]), matrix([r, r1])
-        if rn.rank(U) < U.size[0]:
+        if la.matrix_rank(U) < U.size[0]:
             logging.info('Remove redundant constraint(s)'); ind = find_basis(U.trans())
             return U[ind,:], r[ind]
         return U, r

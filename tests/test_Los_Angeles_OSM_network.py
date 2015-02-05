@@ -10,7 +10,7 @@ class TestLosAngelesOSMNetwork(unittest.TestCase):
 
         for r in rs:
             LA = LosAngelesOSMNetwork()
-            cp = CellPath(NB=150*r,NL=50*r,NS=800*r,graph=LA)
+            cp = CellPath(NB=150*r,NL=50*r,NS=800*r,TN=LA)
         self.assertTrue(True)
 
 if __name__ == '__main__':
