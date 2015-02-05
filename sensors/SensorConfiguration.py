@@ -69,7 +69,11 @@ class SensorConfiguration:
         if self.num_link >= 0:
             pass
         if self.num_OD >= 0:
-            pass
+            if TN.__class__.__name__ == 'EquilibriumNetwork':
+                import grid_networks_UE.path_solver as path_solver
+                data['T'], data['d'] = path_solver.simplex(TN.G)
+            else:
+                data['T'], data['d'] = TN.simplex_od()
         if self.num_cellpath_NB+self.num_cellpath_NL+self.num_cellpath_NS >= 0:
             data['U'], data['f'] = self.cp.simplex(TN)
         if self.num_linkpath >= 0:

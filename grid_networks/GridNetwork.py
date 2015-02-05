@@ -26,7 +26,7 @@ __author__ = 'cathywu'
 class GridNetwork(TrafficNetwork):
 
     def __init__(self, ncol=5, nrow=5, nodroutes=2, NB=60,
-                 NS=20, NL=15, NLP=20):
+                 NS=20, NL=15, NLP=20, myseed=None):
         # we have n*m nodes, (((of which a 5*5 grid is for Caltec and a 5*5 grid
         # is for the streets (for now) --> imagine it as a 5 rows, 10 columns
         # grid, indexed like a matrix)))
@@ -51,6 +51,13 @@ class GridNetwork(TrafficNetwork):
         logging.debug('Sensors sampled')
 
         self.bbox = self.get_bounding_box()
+
+        # Save seed for reproducibility
+        if myseed is None:
+            myseed = random.randint(0,4294967295)
+        np.random.seed(myseed)
+        random.seed(myseed)
+        self.myseed = myseed
 
     def get_route_flow(self,i):
         return self.routes[i]['flow']
