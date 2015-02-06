@@ -4,11 +4,11 @@ Created on Apr 18, 2014
 @author: jeromethai
 '''
 
-import Graph
-import Graph as g
 import numpy as np
 import scipy.io as sio
 from cvxopt import matrix
+
+import networks.wardrop.Graph as g
 
 def small_example():
     

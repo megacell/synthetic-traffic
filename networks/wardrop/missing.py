@@ -5,7 +5,7 @@ Created on Apr 23, 2014
 '''
 
 import numpy as np
-import path_solver as path
+import networks.wardrop.path_solver as path
 from cvxopt import matrix
 
 

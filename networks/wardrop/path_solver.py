@@ -4,10 +4,13 @@ Created on Jul 23, 2014
 @author: jeromethai
 '''
 
-import ue_solver as ue
-from cvxopt import matrix, spmatrix, spdiag, solvers, div
-import numpy.random as ra
 import logging
+
+import numpy.random as ra
+from cvxopt import matrix, spmatrix, spdiag, solvers, div
+
+import networks.wardrop.ue_solver as ue
+
 if logging.getLogger().getEffectiveLevel() >= logging.DEBUG:
     solvers.options['show_progress'] = False
 else:

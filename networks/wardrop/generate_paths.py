@@ -5,11 +5,11 @@ Created on Jul 23, 2014
 '''
 
 import numpy as np
-import grid_networks_UE.ue_solver as ue
-import grid_networks_UE.path_solver as path
+import networks.wardrop.ue_solver as ue
+import networks.wardrop.path_solver as path
 from cvxopt import matrix
-from grid_networks_UE.generate_graph import los_angeles
-import grid_networks_UE.shortest_paths as sh
+from networks.wardrop.generate_graph import los_angeles
+import networks.wardrop.shortest_paths as sh
 
 
 theta = matrix([0.0, 0.0, 0.0, 0.15])

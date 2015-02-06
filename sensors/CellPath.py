@@ -50,7 +50,7 @@ class CellPath:
         regions: list of regions, regions[k] = (geometry, N_region)
         margin: % size of margin around the TN
         """
-        from grid_networks_UE.Waypoints import BoundingBox
+        from networks.wardrop.Waypoints import BoundingBox
         xs = [p[0] for p in TN.G.nodes_position.values()]
         ys = [p[1] for p in TN.G.nodes_position.values()]
         min_x, max_x, min_y, max_y = min(xs), max(xs), min(ys), max(ys)

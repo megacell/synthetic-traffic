@@ -5,7 +5,7 @@ Created on Thu Nov 13 16:31:03 2014
 @author: hugo
 """
 import numpy as np
-from util import distance_on_unit_sphere
+from networks.wardrop.util import distance_on_unit_sphere
 
 class Manips:
     def __init__(self):

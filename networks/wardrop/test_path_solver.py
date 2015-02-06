@@ -4,8 +4,8 @@ Created on Apr 22, 2014
 @author: jeromethai
 '''
 
-import test_ue_solver as testue
-import path_solver as path
+import networks.wardrop.test_ue_solver as testue
+import networks.wardrop.path_solver as path
 
 def main():
     graph, linkflows, unusedpaths = testue.main()

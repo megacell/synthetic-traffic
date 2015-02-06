@@ -4,10 +4,8 @@ Created on Apr 21, 2014
 @author: jeromethai
 '''
 
-import numpy as np
-import ue_solver as ue
-import draw_graph as d
-from test_graph import small_example, los_angeles
+import networks.wardrop.ue_solver as ue
+from networks.wardrop.test_graph import small_example, los_angeles
 from cvxopt import matrix
 
 

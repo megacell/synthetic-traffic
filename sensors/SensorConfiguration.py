@@ -76,11 +76,11 @@ class SensorConfiguration:
         if self.num_link > 0:
             # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
-                import grid_networks_UE.path_solver as path_solver
+                import networks.wardrop.path_solver as path_solver
                 A_full = to_sp(path_solver.linkpath_incidence(TN.G))
                 data['A'], data['b'] = A_full, A_full.dot(TN.p_flow)
             elif TN.__class__.__name__ == 'GridNetwork':
-                from grid_networks.static_matrix import generate_static_matrix_OD
+                from networks.grid_networks.static_matrix import generate_static_matrix_OD
                 data['A'], data['b'] = generate_static_matrix_OD(TN, only_Ab=True)
             else:
                 return NotImplemented
@@ -88,7 +88,7 @@ class SensorConfiguration:
         if self.num_OD > 0:
             # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
-                import grid_networks_UE.path_solver as path_solver
+                import networks.wardrop.path_solver as path_solver
                 data['T'], data['d'] = path_solver.simplex(TN.G)
             else:
                 data['T'], data['d'] = TN.simplex_od()

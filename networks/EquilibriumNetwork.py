@@ -5,10 +5,10 @@ import scipy.io
 import numpy.random as random
 import numpy as np
 
-import grid_networks_UE.Graph as g
+import networks.wardrop.Graph as g
 from TrafficNetwork import TrafficNetwork
-from grid_networks_UE.generate_paths import find_UESOpaths
-import grid_networks_UE.path_solver as path_solver
+from networks.wardrop.generate_paths import find_UESOpaths
+import networks.wardrop.path_solver as path_solver
 
 __author__ = 'jeromethai, cathywu'
 

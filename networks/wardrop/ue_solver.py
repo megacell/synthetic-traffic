@@ -6,7 +6,7 @@ Created on Apr 20, 2014
 
 import numpy as np
 from cvxopt import matrix, spmatrix, solvers, spdiag, mul, div, sparse
-from kktsolver import get_kktsolver
+from networks.wardrop.kktsolver import get_kktsolver
 import logging
 if logging.getLogger().getEffectiveLevel() >= logging.DEBUG:
     solvers.options['show_progress'] = False

@@ -4,7 +4,7 @@ Created on Jul 16, 2014
 @author: jeromethai
 '''
 
-from util import bisection, save_mat
+from networks.wardrop.util import bisection, save_mat
 from cvxopt import matrix, spmatrix
 
 

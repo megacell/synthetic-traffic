@@ -3,13 +3,14 @@ Created on Apr 23, 2014
 
 @author: jeromethai
 '''
+import math
+
 import scipy.linalg as sla
 import scipy.io as sio
 import numpy as np
 from cvxopt import matrix
 import numpy.random as ra
 import networkx as nx
-import math
 
 
 def place_zeros(M, tol=1e-13):

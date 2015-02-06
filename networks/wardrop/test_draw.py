@@ -4,9 +4,8 @@ Created on Apr 25, 2014
 @author: jeromethai
 '''
 
-from test_graph import small_example, los_angeles
-import draw_graph as d
-import matplotlib.pyplot as plt
+from networks.wardrop.test_graph import small_example, los_angeles
+import networks.wardrop.draw_graph as d
 
 od_flows1 = [3.0, 3.0, 1.0, 1.0];
 

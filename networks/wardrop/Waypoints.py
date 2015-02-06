@@ -4,16 +4,18 @@ Created on Aug 9, 2014
 @author: jeromethai
 '''
 
+import logging
+from math import floor
+
 import numpy as np
 import numpy.linalg as la
 import networkx as nx
 import matplotlib.pyplot as plt
-from math import floor
 from cvxopt import matrix, spmatrix
-from util import find_basis
-import path_solver as path
 import scipy.spatial as spa
-import logging
+
+from networks.wardrop.util import find_basis
+import networks.wardrop.path_solver as path
 
 
 class Waypoints:

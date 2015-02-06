@@ -10,7 +10,7 @@ from cvxopt import matrix
 from numpy.random import normal
 from util import distance_on_unit_sphere
 import draw_graph as d
-from grid_networks_UE.get_ODs_from_csv import Create_ODs_nodes_unique
+from networks.wardrop.get_ODs_from_csv import Create_ODs_nodes_unique
 
 def small_example():
     

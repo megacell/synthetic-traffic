@@ -4,12 +4,11 @@ Created on Apr 23, 2014
 @author: jeromethai
 '''
 
-import path_solver as path
-import test_ue_solver as testue
-import missing as mis
 import numpy as np
 import matplotlib.pyplot as plt
 
+import networks.wardrop.test_ue_solver as testue
+import networks.wardrop.missing as mis
 
 def main():
     grid, linkflows, unusedpaths = testue.main()
