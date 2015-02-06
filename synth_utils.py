@@ -13,6 +13,8 @@ def to_np(X):
     return np.array(X).squeeze()
 
 def to_sp(X):
+    if X is None:
+        return None
     return csr_matrix((to_np(X.V),(to_np(X.I),to_np(X.J))), shape=X.size)
 
 # Clean matrix  wrapper
