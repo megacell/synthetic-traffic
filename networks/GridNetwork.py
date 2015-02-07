@@ -48,7 +48,6 @@ class GridNetwork(TrafficNetwork):
         self.path_cps, self.cp_trajs, self.cp_flows = None, None, None
         self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
         # self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
-        self.cp = None
         logging.debug('Sensors sampled')
 
         self.bbox = self.get_bounding_box()
@@ -211,60 +210,6 @@ class GridNetwork(TrafficNetwork):
 
     # SAMPLE VARIOUS FLOWS
     # --------------------------------------------------------------------------
-    @deprecated
-    def sample_sensors(self, NB=None, NS=None, NL=None, NLP=None, thresh=5, n=10):
-        self._sample_waypoints(NB=NB, NS=NS, NL=NL, thresh=thresh, n=n)
-        self._sample_linkpath(N=NLP)
-
-    @deprecated
-    def _sample_waypoints(self, NB=60, NS=0, NL=10, thresh=5, n=10):
-        bbox = self.get_bounding_box()
-        cp = Waypoints(bbox=bbox)
-
-        # uniformly sample points in bbox
-        if NB is not None:
-            cp.uniform_random(n=NB)
-
-        # sample points along heavy edges (main roads)
-        if NL is not None:
-            heavy_edges = self._get_heavy_edges(thresh=thresh)
-            heavy_points =[(self.G.node[e[0]]['pos'],self.G.node[e[1]]['pos']) \
-                           for e in heavy_edges]
-            if len(heavy_points) > 1:
-                cp.gaussian_polyline(heavy_points,n=NL,tau=30)
-
-        if cp.wp != {}:
-            self.cp = cp
-            self._get_cp_trajs(n)
-        else:
-            self.cp = None
-
-    @deprecated
-    def _sample_linkpath(self, N=10):
-        if N is not None:
-            self.lp = random.sample(self.G.edges(),N)
-            self._get_lp_trajs()
-        else:
-            self.lp = None
-
-    @deprecated
-    def _get_lp_trajs(self, r_ids=None):
-        rs = self.routes
-        if not r_ids:
-            r_ids = xrange(len(rs))
-        path_lps = [[e for e in zip(rs[r]['path'],rs[r]['path'][1:]) \
-                     if e in self.lp] for r in r_ids]
-        lps = {}
-        for value,key in enumerate(path_lps):
-            lps.setdefault(tuple(key), []).append(value)
-        if () in lps:
-            del lps[()]
-        self.path_lps, self.lp_trajs = path_lps, lps
-
-    def _get_cp_trajs(self, n, fast=False, tol=1e-3):
-        self.path_cps, self.cp_trajs = self.cp.get_wp_trajs(self.G,self.routes,
-                                n, fast=fast, tol=tol)
-
     def sample_OD_flow(self, o_flow=1.0, nnz_oroutes=2, sparsity=None):
         self.o_flow = o_flow
         if sparsity is None:
