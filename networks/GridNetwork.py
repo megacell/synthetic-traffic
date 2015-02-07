@@ -17,8 +17,7 @@ sys.path.append(lib_path)
 from YenKSP import graph
 from YenKSP import algorithms
 
-from waypoints.Waypoints import Waypoints
-from synth_utils import deprecated, simplex, to_sp, to_np
+from synth_utils import deprecated, to_np
 from TrafficNetwork import TrafficNetwork
 
 __author__ = 'cathywu'
