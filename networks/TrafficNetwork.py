@@ -5,7 +5,7 @@ class TrafficNetwork:
     Bundles road network and traffic network dynamics
     """
     def __init__(self):
-        self.graph = None
+        self.G = None
         self.bbox = None
 
     # checks if point is in bounding box
@@ -15,28 +15,43 @@ class TrafficNetwork:
 
     @abstractmethod
     def num_links(self):
-        return NotImplemented
-
-    @abstractmethod
-    def get_links(self):
-        return NotImplemented
-
-    @abstractmethod
-    def get_routes(self):
+        """
+        Returns the number of links in the network
+        :return:
+        """
         return NotImplemented
 
     @abstractmethod
     def get_route_flow(self,i):
+        """
+        Returns the route flow for route index i
+        :param i:
+        :return:
+        """
         return NotImplemented
 
     @abstractmethod
     def get_bounding_box(self):
+        """
+        Returns the bounding box for the network (x1,y1,x2,y2)
+        :return:
+        """
         return NotImplemented
 
     @abstractmethod
     def get_heavy_points(self, thresh=None):
+        """
+        Returns the points to sample along for NL cellpath sensors
+        :param thresh:
+        :return:
+        """
         return NotImplemented
 
     @abstractmethod
     def get_region_weights(self):
+        """
+        Returns a list of weight + bounding box tuples, for sampling of NS
+        cellpath sensors
+        :return:
+        """
         return NotImplemented

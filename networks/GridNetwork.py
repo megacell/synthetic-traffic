@@ -27,6 +27,7 @@ class GridNetwork(TrafficNetwork):
 
     def __init__(self, ncol=5, nrow=5, nodroutes=2, NB=60,
                  NS=20, NL=15, NLP=20, myseed=None):
+        TrafficNetwork.__init__(self)
         # we have n*m nodes, (((of which a 5*5 grid is for Caltec and a 5*5 grid
         # is for the streets (for now) --> imagine it as a 5 rows, 10 columns
         # grid, indexed like a matrix)))

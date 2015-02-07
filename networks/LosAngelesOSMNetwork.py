@@ -4,6 +4,7 @@ import config as c
 
 class LosAngelesOSMNetwork(TrafficNetwork):
     def __init__(self):
+        TrafficNetwork.__init__(self)
         self.bbox = self.get_bounding_box()
 
     def get_bounding_box(self):

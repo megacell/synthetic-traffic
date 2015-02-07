@@ -16,6 +16,7 @@ class EquilibriumNetwork(TrafficNetwork):
     def __init__(self, type='LA-small', SO=False, demand=3,
                  delay_type='Polynomial', noise=0,
                  path='networks/los_angeles_data_2.mat'):
+        TrafficNetwork.__init__(self)
         self.path = path
         self.noise = noise
         self.delay_type = delay_type
