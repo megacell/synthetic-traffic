@@ -3,6 +3,7 @@ import random
 import numpy as np
 
 from synth_utils import to_sp
+from synth_utils import deprecated
 
 __author__ = 'cathywu'
 
@@ -38,6 +39,7 @@ class SensorConfiguration:
         random.seed(myseed)
         self.myseed = myseed
 
+    @deprecated
     def sample_sensors(self, TN):
         if self.num_link > 0:
             self._sample_link_sensors(TN)
@@ -72,6 +74,16 @@ class SensorConfiguration:
 
     def export_matrices(self, TN):
         data = {}
+        # Export x_true
+        # FIXME common interface
+        if TN.__class__.__name__ == 'EquilibriumNetwork':
+            data['x_true'] = TN.p_flow
+        elif TN.__class__.__name__ == 'GridNetwork':
+            from networks.grid_networks.static_matrix import generate_static_matrix_OD
+            _, _, data['x_true'] = generate_static_matrix_OD(TN, only_Ab=True)
+        else:
+            return NotImplemented
+
         # Export A,b
         if self.num_link > 0:
             # FIXME common interface
@@ -81,7 +93,7 @@ class SensorConfiguration:
                 data['A'], data['b'] = A_full, A_full.dot(TN.p_flow)
             elif TN.__class__.__name__ == 'GridNetwork':
                 from networks.grid_networks.static_matrix import generate_static_matrix_OD
-                data['A'], data['b'] = generate_static_matrix_OD(TN, only_Ab=True)
+                data['A'], data['b'], _ = generate_static_matrix_OD(TN, only_Ab=True)
             else:
                 return NotImplemented
         # Export T,d
@@ -89,7 +101,8 @@ class SensorConfiguration:
             # FIXME common interface
             if TN.__class__.__name__ == 'EquilibriumNetwork':
                 import networks.wardrop.path_solver as path_solver
-                data['T'], data['d'] = path_solver.simplex(TN.G)
+                T, d = path_solver.simplex(TN.G)
+                data['T'], data['d'] = to_sp(T),d
             else:
                 data['T'], data['d'] = TN.simplex_od()
         # Export U,f

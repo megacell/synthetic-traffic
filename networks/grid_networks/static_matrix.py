@@ -158,7 +158,7 @@ def generate_static_matrix_OD(grid, only_Ab=False):
     b = A.dot(x)
 
     if only_Ab is True:
-        return A,b
+        return A,b,x
 
     T, d = grid.simplex_od()
     U, f = grid.simplex_cp() if grid.cp is not None else (None, None)
