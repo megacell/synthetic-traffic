@@ -1,6 +1,6 @@
 import os
 
-DATA_DIR = os.path.expanduser('~/Dropbox/PhD/synthetic-traffic/data')
+DATA_DIR = os.path.expanduser('~/Dropbox/PhD/traffic-estimation/synthetic_traffic/data')
 ROAD_FILE = 'roads.pkl'
 SENSOR_FILE = 'sensors.csv'
 WAYPOINTS_FILE = 'waypoints-%s.pkl'

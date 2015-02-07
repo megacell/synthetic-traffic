@@ -47,7 +47,8 @@ class GridNetwork(TrafficNetwork):
         self.nz_routes = None
         self.path_cps, self.cp_trajs, self.cp_flows = None, None, None
         self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
-        self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
+        # self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
+        self.cp = None
         logging.debug('Sensors sampled')
 
         self.bbox = self.get_bounding_box()
@@ -270,10 +271,6 @@ class GridNetwork(TrafficNetwork):
             self._sample_flows(nnz_oroutes=nnz_oroutes)
         else:
             self._sample_flows_dense(sparsity=sparsity)
-        if self.cp is not None:
-            self._update_cp_flows()
-        if self.lp is not None:
-            self._update_lp_flows()
         self._update_nz_routes()
 
     def _sample_flows(self, nnz_oroutes=2):
@@ -358,16 +355,6 @@ class GridNetwork(TrafficNetwork):
 
     # FLOW UPDATE
     # --------------------------------------------------------------------------
-    @deprecated
-    def _update_lp_flows(self):
-        self.lp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
-                         paths in self.lp_trajs.values()]
-
-    @deprecated
-    def _update_cp_flows(self):
-        self.cp_flows = [sum([self.routes[i]['flow'] for i in paths]) for \
-                         paths in self.cp_trajs.values()]
-
     def _update_od_flows(self, od_flows):
         self.od_flows = od_flows
 
@@ -424,47 +411,6 @@ class GridNetwork(TrafficNetwork):
         T = coo_matrix(([1.0] * len(I),(I,J)), shape=(n,m)).tocsr()
         d = to_np(d)
         return T, d
-
-    def simplex_cp(self):
-        """Build simplex constraints from cellpath trajectories and flows
-        """
-        return simplex(len(self.routes),self.cp_trajs,self.cp_flows)
-
-    @deprecated
-    def simplex_lp(self):
-        """Build simplex constraints from linkpath trajectories and flows
-        """
-        return simplex(len(self.routes),self.lp_trajs,self.lp_flows)
-
-    @staticmethod
-    @deprecated
-    def simplex(nroutes, traj, flows):
-        """
-        Build simplex matrix from nroutes (n), trajectories (m), and trajectory
-        flows
-
-        We represent each trajectory as its own row of "1"s (X). We represent the
-        respective trajectory flow vector (r).
-
-        Applicable to cellpath and linkpath flows
-
-        :param nroutes: number of routes
-        :param traj: dictionary keyed on the trajectory, valued on the
-                     respective list of routes
-        :param flows: trajectory flows
-        :return:
-        """
-        from cvxopt import matrix, spmatrix
-        m, n = nroutes, len(traj)
-        I, J, r = [], [], matrix(0.0, (n,1))
-        for i, path_ids in enumerate(traj.itervalues()):
-            r[i] = flows[i]
-            for id in path_ids:
-                I.append(i)
-                J.append(id)
-        X = coo_matrix(([1.0] * len(I),(I,J)), shape=(n,m)).tocsr()
-        r = to_np(r)
-        return X, r
 
     # ART
     # --------------------------------------------------------------------------

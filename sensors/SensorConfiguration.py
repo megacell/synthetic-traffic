@@ -39,7 +39,6 @@ class SensorConfiguration:
         random.seed(myseed)
         self.myseed = myseed
 
-    @deprecated
     def sample_sensors(self, TN):
         if self.num_link > 0:
             self._sample_link_sensors(TN)

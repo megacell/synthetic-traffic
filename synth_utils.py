@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse import csr_matrix, coo_matrix
+import functools
 
 __author__ = 'cathywu, jeromethai'
 
@@ -38,13 +39,16 @@ def deprecated(func):
     '''This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
     when the function is used.'''
+
+    @functools.wraps(func)
     def new_func(*args, **kwargs):
-        warnings.warn("Call to deprecated function {}.".format(func.__name__),
-                      category=Warning)
+        warnings.warn_explicit(
+            "Call to deprecated function {}.".format(func.__name__),
+            category=Warning,
+            filename=func.func_code.co_filename,
+            lineno=func.func_code.co_firstlineno + 1
+        )
         return func(*args, **kwargs)
-    new_func.__name__ = func.__name__
-    new_func.__doc__ = func.__doc__
-    new_func.__dict__.update(func.__dict__)
     return new_func
 
 def simplex(nroutes, traj, flows):
