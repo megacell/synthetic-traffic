@@ -43,12 +43,8 @@ class GridNetwork(TrafficNetwork):
         self.routes = self._pairwise_shortest_routes(H)
         logging.debug('Routes generated')
 
-        # Generate sensors
+        # Routes with non-zero flow
         self.nz_routes = None
-        self.path_cps, self.cp_trajs, self.cp_flows = None, None, None
-        self.path_lps, self.lp_trajs, self.lp_flows = None, None, None
-        # self.sample_sensors(NB=NB, NS=NS, NL=NL, NLP=min(len(self.G.edges()),NLP))
-        logging.debug('Sensors sampled')
 
         self.bbox = self.get_bounding_box()
 
