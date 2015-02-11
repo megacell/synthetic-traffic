@@ -24,7 +24,8 @@ __author__ = 'cathywu'
 
 class GridNetwork(TrafficNetwork):
 
-    def __init__(self, ncol=5, nrow=5, nodroutes=2, myseed=None):
+    def __init__(self, ncol=5, nrow=5, nodroutes=2, myseed=None, o_flow=1.0,
+                 nnz_oroutes=2, sparsity=None):
         TrafficNetwork.__init__(self)
         # we have n*m nodes, (((of which a 5*5 grid is for Caltec and a 5*5 grid
         # is for the streets (for now) --> imagine it as a 5 rows, 10 columns
@@ -53,6 +54,13 @@ class GridNetwork(TrafficNetwork):
         np.random.seed(myseed)
         random.seed(myseed)
         self.myseed = myseed
+
+        self.o_flow = o_flow
+        self.sparsity = sparsity
+        self.nnz_oroutes = nnz_oroutes
+        self.sample_OD_flow(o_flow=self.o_flow, sparsity=self.sparsity,
+                            nnz_oroutes=self.nnz_oroutes)
+
 
     def num_links(self):
         return len(self.G.edges())
