@@ -24,7 +24,6 @@ class EquilibriumNetwork(TrafficNetwork):
             from cvxopt import matrix as mat
             parameters = mat([0.0, 0.0, 0.0, 0.15])
             self.G = self.los_angeles(demand=demand,parameters=parameters)
-            # TODO THIS IS WHERE I AM
             paths = find_UESOpaths(SO, path=path) # find the used paths in
 
             for p in paths:
