@@ -272,6 +272,7 @@ class CellPath:
     def closest_to_point(self, point, fast=False):
         """Find closest cell to a point (x,y)
         Note: fast is only available in Rectangle class"""
+        id = None
         min_dist = np.inf
         # FIXME UPDATE fast method not used here
         if fast:
@@ -400,7 +401,7 @@ class CellPath:
         for path_id, path in TN.G.paths.items():
             # if path.flow > tol:
             k += 1
-            if k%10 == 0: logging.info('Number of paths processed: %s' % k)
+            if k%10 == 0: logging.debug('Number of paths processed: %s' % k)
             ids = self.closest_to_path(TN.G, path_id, n, fast)
 
             path_cps[path_id] = ids

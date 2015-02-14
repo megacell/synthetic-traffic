@@ -20,6 +20,7 @@ class EquilibriumNetwork(TrafficNetwork):
         self.path = path
         self.noise = noise
         self.delay_type = delay_type
+        self.SO = SO
         if type == 'LA-small':
             from cvxopt import matrix as mat
             parameters = mat([0.0, 0.0, 0.0, 0.15])

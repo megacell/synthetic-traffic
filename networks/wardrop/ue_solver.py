@@ -203,8 +203,8 @@ def solver(graph=None, update=False, full=False, data=None, SO=False):
     for k in range(p): linkflows += x[k*n:(k+1)*n]
     
     if update:
-        logging.info('Update link flows, delays in Graph.'); graph.update_linkflows_linkdelays(linkflows)
-        logging.info('Update path delays in Graph.'); graph.update_pathdelays()
+        logging.debug('Update link flows, delays in Graph.'); graph.update_linkflows_linkdelays(linkflows)
+        logging.debug('Update path delays in Graph.'); graph.update_pathdelays()
     
     if full: return linkflows, x    
     return linkflows
