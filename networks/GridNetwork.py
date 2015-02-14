@@ -17,7 +17,7 @@ sys.path.append(lib_path)
 from YenKSP import graph
 from YenKSP import algorithms
 
-from TrafficNetwork import TrafficNetwork
+from networks.TrafficNetwork import TrafficNetwork
 from synth_utils import to_np
 
 __author__ = 'cathywu'
