@@ -10,8 +10,7 @@ import numpy as np
 import scipy.io
 import logging
 
-from GridNetwork import GridNetwork
-from waypoints import Waypoints
+from networks.GridNetwork import GridNetwork
 from synth_utils import deprecated, array
 
 def assert_simplex_incidence(M,n):
