@@ -25,7 +25,7 @@ __author__ = 'cathywu'
 class GridNetwork(TrafficNetwork):
 
     def __init__(self, ncol=5, nrow=5, nodroutes=2, myseed=None, o_flow=1.0,
-                 nnz_oroutes=2, sparsity=None):
+                 nnz_oroutes=2, concentration=None):
         TrafficNetwork.__init__(self)
         # we have n*m nodes, (((of which a 5*5 grid is for Caltec and a 5*5 grid
         # is for the streets (for now) --> imagine it as a 5 rows, 10 columns
@@ -56,10 +56,9 @@ class GridNetwork(TrafficNetwork):
         self.myseed = myseed
 
         self.o_flow = o_flow
-        self.sparsity = sparsity
+        self.concentration = concentration
         self.nnz_oroutes = nnz_oroutes
-        self.sample_OD_flow(o_flow=self.o_flow, sparsity=self.sparsity,
-                            nnz_oroutes=self.nnz_oroutes)
+        self.sample_OD_flow()
 
 
     def num_links(self):
@@ -213,12 +212,11 @@ class GridNetwork(TrafficNetwork):
 
     # SAMPLE VARIOUS FLOWS
     # --------------------------------------------------------------------------
-    def sample_OD_flow(self, o_flow=1.0, nnz_oroutes=2, sparsity=None):
-        self.o_flow = o_flow
-        if sparsity is None:
-            self._sample_flows(nnz_oroutes=nnz_oroutes)
+    def sample_OD_flow(self):
+        if self.concentration is None:
+            self._sample_flows(nnz_oroutes=self.nnz_oroutes)
         else:
-            self._sample_flows_dense(sparsity=sparsity)
+            self._sample_flows_dense(concentration=self.concentration)
         self._update_nz_routes()
 
     def _sample_flows(self, nnz_oroutes=2):
@@ -270,7 +268,7 @@ class GridNetwork(TrafficNetwork):
                 for i in selected_route_indices_OD:
                     flow_portions_OD[i] = flow_portions[i]/total
 
-    def _sample_flows_dense(self, sparsity=0.1):
+    def _sample_flows_dense(self, concentration=0.1):
         '''Generate traffic from each origin onto some small fraction of its routes, \
                 and compute the amount of flow at each edge.'''
 
@@ -291,7 +289,7 @@ class GridNetwork(TrafficNetwork):
             self.G.edge[u][v]['flow'] = 0
 
         # sample OD pairs
-        selected_OD_pairs = random.sample(OD_pairs,int(len(OD_pairs) * sparsity))
+        selected_OD_pairs = random.sample(OD_pairs,int(len(OD_pairs) * concentration))
         for origin,dest in selected_OD_pairs:
             self.od_flows[origin][dest] = self.o_flow
             selected_route_indices = route_indices_by_OD[origin][dest]
