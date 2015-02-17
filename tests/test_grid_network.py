@@ -22,9 +22,9 @@ class TestGridNetwork(unittest.TestCase):
 
     def test_concentrated(self):
         o_flow = 1
-        sparsity = 0.1
+        concentration = 0.1
 
-        TN = GridNetwork(o_flow=o_flow, sparsity=sparsity)
+        TN = GridNetwork(o_flow=o_flow, concentration=concentration)
 
         S = SensorConfiguration(num_link=self.num_link, num_OD=self.num_OD,
                                 num_cellpath_NB=self.num_cellpath_NB,
@@ -37,9 +37,8 @@ class TestGridNetwork(unittest.TestCase):
 
     def test_dispersed(self):
         o_flow = 1
-        nnz_oroutes = 15
 
-        TN = GridNetwork(o_flow=o_flow, nnz_oroutes=nnz_oroutes)
+        TN = GridNetwork(o_flow=o_flow)
 
         S = SensorConfiguration(num_link=self.num_link, num_OD=self.num_OD,
                                 num_cellpath_NB=self.num_cellpath_NB,
