@@ -26,5 +26,15 @@ class TestEquilibriumNetwork(unittest.TestCase):
         data = S.export_matrices(TN)
         self.assertTrue(True)
 
+    def test_save(self):
+        import numpy as np
+        from networks.EquilibriumNetwork import EquilibriumNetwork
+        from sensors.SensorConfiguration import SensorConfiguration
+        from synth_utils import load, save
+        TN = EquilibriumNetwork()
+        fname = save(TN, prefix='Test_TN_EQ')
+        TN = load(fname)
+        self.assertTrue(True)
+
 if __name__ == '__main__':
     unittest.main()

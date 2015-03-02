@@ -5,8 +5,29 @@ import numpy as np
 import scipy.sparse as sps
 from scipy.sparse import csr_matrix, coo_matrix
 import functools
+import cPickle as pickle
+from random import randint
+import time
 
 __author__ = 'cathywu, jeromethai'
+
+def load(fname=None):
+    try:
+        with open(fname) as f:
+            return pickle.load(f)
+    except (IOError, ValueError):
+        print 'Error loading %s' % fname
+        return None
+
+def save(x, fname=None, prefix=None):
+    if fname is None and prefix is not None:
+        t = int(time.time())
+        r = randint(1e5,999999)
+        fname = "%s_%s_%s.pkl" % (prefix, t, r)
+    if fname is not None:
+        with open(fname, 'w') as f:
+            pickle.dump(x, f)
+    return fname
 
 # Helper functions
 # -------------------------------------
