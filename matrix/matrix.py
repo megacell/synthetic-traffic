@@ -8,7 +8,7 @@ from sensors.SensorConfiguration import SensorConfiguration
 
 __author__ = 'yuanchenyang'
 
-DATA_PREFIX = '/home/chenyang/src/megacell/data/'
+DATA_PREFIX = '/home/chenyang/src/megacell/BSC-NNLS/python/c_extensions/stress_testing/'
 
 def generate_synthetic(fname, grid_config, sensor_config, save=True):
 
@@ -42,10 +42,9 @@ def generate_synthetic(fname, grid_config, sensor_config, save=True):
               , 'x_true': x
               , 'b': b
               , 'f': f
-              , 'blocks': np.array(block_sizes)
+              , 'block_sizes': np.array(block_sizes)
               , 'block_starts': np.array(block_starts)
               }
-
     if save:
         scipy.io.savemat(fname, new_mat, oned_as='column')
     return new_mat
